@@ -39,3 +39,10 @@ test('cycles are refused', () => {
 test('external packages are ignored', () => {
   assert.deepEqual(checkDependencies(graph({ orders: [{ target: 'npm:yaml', type: 'static' }] })), []);
 });
+
+test('build tools may be depended on from anywhere', () => {
+  const g = graph({ orders: [{ target: 'toolchain-go', type: 'implicit' }] });
+  g.nodes['toolchain-go'] = node('internal-tools/toolchains/go');
+  g.dependencies['toolchain-go'] = [];
+  assert.deepEqual(checkDependencies(g), []);
+});
