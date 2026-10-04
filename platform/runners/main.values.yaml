@@ -1,0 +1,23 @@
+# Actions Runner Controller scale set: Builds of main: writes the cache, publishes releases.
+# helm install factory-main oci://<internal-registry>/actions-runner-controller-charts/gha-runner-scale-set -f main.values.yaml
+githubConfigUrl: https://github.com/<owner>/<repo>
+githubConfigSecret: factory-runner-github-app
+runnerScaleSetName: factory-main
+minRunners: 1
+maxRunners: 20
+template:
+  spec:
+    containers:
+      - name: runner
+        # Runner image from the internal registry, with Node, mise and the
+        # toolchains' tools baked in, so jobs don't download them.
+        image: <internal-registry>/factory/runner:<version>
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: NX_SELF_HOSTED_REMOTE_CACHE_SERVER
+            value: https://nx-cache.<internal-domain>
+          - name: NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: factory-nx-cache
+                key: read-write-token
