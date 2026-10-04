@@ -1,0 +1,29 @@
+# Every changed path belongs to exactly one boundary; the first matching rule wins.
+# A PR must stay inside one boundary (and one sub-boundary where `per` is set).
+# `per: N` splits a boundary into one sub-boundary per folder at path depth N,
+# for example internal-tools/<tool>.
+boundaries:
+  - name: workspace
+    paths: [nx.json, package.json, package-lock.json, .gitignore, .node-version, .npmrc]
+  - name: docs
+    paths: ["docs/**", README.md, LICENSE]
+  - name: product
+    paths: ["product/**"]
+  - name: internal-tool
+    paths: ["internal-tools/*/**"]
+    per: 2
+  - name: internal-service
+    paths: ["internal-services/*/**"]
+    per: 2
+  - name: ci
+    paths: ["ci/**", ".github/**"]
+  - name: platform
+    paths: ["platform/**"]
+  - name: test-framework
+    paths: ["test-framework/**"]
+
+# A factory owner may allow one cross-boundary PR with this label.
+# The PR then becomes risk tier R3 and the override is recorded as evidence.
+override:
+  label: boundary-override
+  teams: [factory-owners]
