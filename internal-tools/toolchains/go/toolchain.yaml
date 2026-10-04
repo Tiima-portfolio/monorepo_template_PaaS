@@ -15,6 +15,7 @@ targets:
     inputs: ["{projectRoot}/**/*.go", "!{projectRoot}/**/*_test.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
     outputs: ["{projectRoot}/dist/{name}"]
   package:
-    command: tar -czf dist/{name}.tar.gz -C dist {name}
+    # FACTORY_VERSION is set by the release job.
+    command: tar -czf "dist/{name}-${FACTORY_VERSION:-0.0.0}.tar.gz" -C dist {name}
     dependsOn: [build]
-    outputs: ["{projectRoot}/dist/{name}.tar.gz"]
+    outputs: ["{projectRoot}/dist/{name}-*.tar.gz"]
