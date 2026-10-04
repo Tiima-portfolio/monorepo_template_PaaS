@@ -13,9 +13,9 @@ targets:
     inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
   test:
     # Also writes coverage/lcov.info for the factory's diff coverage.
-    command: mkdir -p coverage && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info
+    command: mkdir -p coverage test-results && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info --test-reporter=junit --test-reporter-destination=test-results/junit.xml
     dependsOn: [install]
-    outputs: ["{projectRoot}/coverage"]
+    outputs: ["{projectRoot}/coverage", "{projectRoot}/test-results"]
     inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
   build:
     command: npx tsc
