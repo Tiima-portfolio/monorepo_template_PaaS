@@ -27,8 +27,8 @@ export function createService({ name, lang, owner, kind = 'product', extra = [],
   const dest = path.join(root, PLACES[kind], name);
   if (fs.existsSync(dest)) throw new Error(`${path.relative(root, dest)} already exists`);
 
-  const vars = { __NAME__: name, __OWNER__: owner };
-  const fill = (s) => s.replace(/__NAME__|__OWNER__/g, (k) => vars[k]);
+  const vars = { __NAME__: name, __OWNER__: owner, __PKG__: name.replace(/-/g, '_') };
+  const fill = (s) => s.replace(/__NAME__|__OWNER__|__PKG__/g, (k) => vars[k]);
   const copy = (from, to) => {
     for (const e of fs.readdirSync(from, { withFileTypes: true })) {
       const src = path.join(from, e.name);

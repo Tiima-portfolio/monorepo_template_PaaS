@@ -1,0 +1,21 @@
+# Python with uv. In the air-gapped network, UV_INDEX_URL points at the
+# internal package mirror.
+setup:
+  mise:
+    python: "3.13"
+    uv: "0.12.23"
+targets:
+  lint:
+    command: uv run ruff check . && uv run ruff format --check .
+    inputs: ["{projectRoot}/**/*.py", "{projectRoot}/pyproject.toml", "{projectRoot}/uv.lock"]
+  test:
+    command: uv run pytest -q
+    inputs: ["{projectRoot}/**/*.py", "{projectRoot}/pyproject.toml", "{projectRoot}/uv.lock"]
+  build:
+    command: uv build --wheel --out-dir dist
+    dependsOn: ["^build"]
+    inputs: ["{projectRoot}/src/**/*.py", "{projectRoot}/pyproject.toml", "{projectRoot}/uv.lock"]
+    outputs: ["{projectRoot}/dist"]
+  package:
+    command: ls dist/*.whl
+    dependsOn: [build]
