@@ -25,6 +25,7 @@ import { lintTestFile } from './test-quality.mjs';
 import { contractProblems } from './contracts.mjs';
 import { agentGuardrails, ownerChecks } from './guardrails.mjs';
 import { networkProblems } from './network.mjs';
+import { agentBackpressure } from './backpressure.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -187,6 +188,22 @@ if (isPR && provenance.isAgent) {
   if (!g.ok) provenance = { ...provenance, ok: false, message: `${provenance.message}; ${g.problems.join('; ')}` };
   if (g.needsHuman) provenance = { ...provenance, needsHuman: true };
   record('provenance', provenance.ok, provenance.message);
+}
+// Backpressure on agents: open-PR caps and the sponsor's review budget.
+if (isPR && provenance.isAgent && env.GITHUB_REPOSITORY) {
+  try {
+    const openPrs = JSON.parse(execFileSync('gh', ['pr', 'list', '--repo', env.GITHUB_REPOSITORY, '--state', 'open', '--limit', '500', '--json', 'number,author,reviewDecision'], { encoding: 'utf8' }))
+      .map((p) => ({ ...p, author: p.author?.login }));
+    const policyAgents = loadPolicy('agents').agents.map((a) => ({ ...a, login: a.account.replace(/\[bot\]$/, '') }));
+    const agent = policyAgents.find((a) => a.account === pr.user?.login || a.login === pr.user?.login);
+    const problems = agent ? agentBackpressure({ agent, openPrs, agents: policyAgents, teams: loadPolicy('teams'), current: pr.number }) : [];
+    if (problems.length) {
+      provenance = { ...provenance, ok: false, message: `${provenance.message}; ${problems.join('; ')}` };
+      record('provenance', false, provenance.message);
+    }
+  } catch (e) {
+    console.error(`Could not check agent backpressure: ${e.message}`);
+  }
 }
 const escapeFix = isPR && (pr.labels || []).some((l) => l.name === 'escape-fix');
 const required = requiredEvidence(risk.tier, { agent: provenance.isAgent, testsRemoved, escapeFix, ownerChecks: checks.length > 0 });

@@ -13,3 +13,8 @@ catalog_approvers:
   product: [factory-owners]
   internal-services: [factory-owners]
   internal-tools: [factory-owners]
+
+# How many agent PRs a sponsoring team may have waiting for its review before
+# that team's agents are held back.
+review_budget:
+  default: 10
