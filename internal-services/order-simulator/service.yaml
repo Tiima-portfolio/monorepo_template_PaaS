@@ -1,0 +1,6 @@
+name: order-simulator
+owner: team-orders
+toolchains: [python]
+criticality: normal
+consumes: [orders]
+contract: []
