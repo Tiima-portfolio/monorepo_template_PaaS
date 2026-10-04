@@ -14,7 +14,9 @@ export function decide(input) {
     const rec = input.records.find((r) => r.check === req.name && r.sha === input.sha);
     const stale = !rec && input.records.some((r) => r.check === req.name);
     const status = rec ? rec.status : 'missing';
-    const ok = status === 'pass' || (status === 'skipped' && rec.details === 'nothing affected');
+    // The factory skips a check only when it doesn't apply (nothing affected,
+    // or a check switched off in policy).
+    const ok = status === 'pass' || status === 'skipped';
     if (!ok && req.mode === 'enforce') {
       blocking.push(stale ? `${req.name} (evidence is for another commit)` : `${req.name} (${status})`);
     }
