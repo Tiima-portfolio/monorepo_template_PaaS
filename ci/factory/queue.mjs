@@ -9,13 +9,21 @@ export function priorityOf(pr, policy, agentAccounts) {
   return agentAccounts.includes(pr.author) ? policy.default_priority.agent : policy.default_priority.human;
 }
 
+export const isWorkspaceChange = (pr, policy) => (pr.files || []).some((f) => (policy.workspace_paths || []).includes(f));
+
+export function offPeak(now, window) {
+  if (!window) return true;
+  const h = now.getUTCHours();
+  return window.from > window.to ? h >= window.from || h < window.to : h >= window.from && h < window.to;
+}
+
 export const isRuleChange = (pr, policy) => (pr.files || []).some((f) => matchesAny(f, policy.rule_change_paths));
 
 // candidates: [{ number, author, labels, files, readyAt, admitted, inQueue }]
 // queue: [{ number, ruleChange }] current merge queue entries.
 // agentLimits: { account: maxEntriesInQueue }.
 // Returns [{ number, priority, jump }] to enqueue, and why the others wait.
-export function selectToEnqueue({ candidates, queue, policy, agentAccounts = [], agentLimits = {} }) {
+export function selectToEnqueue({ candidates, queue, policy, agentAccounts = [], agentLimits = {}, now = new Date() }) {
   const waiting = [];
   const picks = [];
   const ready = candidates
@@ -32,6 +40,10 @@ export function selectToEnqueue({ candidates, queue, policy, agentAccounts = [],
   for (const e of queue) if (e.author) perAgent[e.author] = (perAgent[e.author] || 0) + 1;
 
   for (const pr of ready) {
+    if (pr.priority !== 'P0' && isWorkspaceChange(pr, policy) && !offPeak(now, policy.off_peak_utc)) {
+      waiting.push({ number: pr.number, reason: `workspace change waits for the off-peak window (${policy.off_peak_utc.from}:00 to ${policy.off_peak_utc.to}:00 UTC)` });
+      continue;
+    }
     if (pr.ruleChange) {
       if (depth === 0 && picks.length === 0) {
         picks.push({ number: pr.number, priority: pr.priority, jump: pr.priority === 'P0' });
