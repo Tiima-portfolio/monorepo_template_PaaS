@@ -41,3 +41,16 @@ test('new-service creates a project from the template', () => {
   assert.throws(() => createService({ name: 'orders', lang: 'typescript', owner: 'x', root }), /already exists/);
   assert.throws(() => createService({ name: 'Bad Name', lang: 'typescript', owner: 'x', root }), /lowercase/);
 });
+
+test('a language plus container runs both, in order', () => {
+  const p = projectFor('product/services/api/service.yaml', { name: 'api', toolchains: ['go', 'container'] }, loadToolchains());
+  assert.match(p.targets.build.options.command, /^CGO_ENABLED=0 go build .* && docker buildx build --load -t api:ci \.$/);
+  assert.equal(p.targets.build.cache, false);
+  assert.match(p.targets.lint.options.command, /go vet .* && hadolint Dockerfile/);
+  assert.ok(!(p.targets.test.dependsOn || []).includes('test'));
+});
+
+test('a plain container service gets lint, build, test and package', () => {
+  const p = projectFor('product/services/edge/service.yaml', { name: 'edge', toolchains: ['container'] }, loadToolchains());
+  for (const t of ['lint', 'build', 'test', 'package']) assert.ok(p.targets[t], t);
+});

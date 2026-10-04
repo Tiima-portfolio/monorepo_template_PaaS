@@ -52,6 +52,25 @@ function toTarget(spec, vars) {
   return target;
 }
 
+// Two toolchains with a target of the same name run in the order listed,
+// for example [go, container]: the Go build, then the image build.
+function combine(first, second, targetName) {
+  const union = (a, b) => (a || b ? [...new Set([...(a || []), ...(b || [])])] : undefined);
+  const target = {
+    ...first,
+    options: { ...first.options, command: `${first.options.command} && ${second.options.command}` },
+    cache: first.cache && second.cache,
+  };
+  const dependsOn = union(first.dependsOn, second.dependsOn)?.filter((d) => d !== targetName);
+  if (dependsOn?.length) target.dependsOn = dependsOn;
+  else delete target.dependsOn;
+  const inputs = union(first.inputs, second.inputs);
+  if (inputs) target.inputs = inputs;
+  const outputs = union(first.outputs, second.outputs);
+  if (outputs) target.outputs = outputs;
+  return target;
+}
+
 function projectFor(file, service, toolchains) {
   const root = path.dirname(file);
   const name = service.name || path.basename(root);
@@ -64,7 +83,8 @@ function projectFor(file, service, toolchains) {
       throw new Error(`${file}: unknown toolchain "${tc}". Known: ${Object.keys(toolchains).join(', ') || 'none'}`);
     }
     for (const [targetName, spec] of Object.entries(def.targets || {})) {
-      targets[targetName] = toTarget(spec, vars);
+      const next = toTarget(spec, vars);
+      targets[targetName] = targets[targetName] ? combine(targets[targetName], next, targetName) : next;
     }
   }
   const deps = [...(service.dependsOn || []), ...(service.consumes || [])];

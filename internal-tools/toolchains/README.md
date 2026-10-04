@@ -37,3 +37,8 @@ toolchain's `template/`, a `service.yaml` and a `guardrails.yaml` with defaults.
 | go | `gofmt -l`, `go vet` | `go test` | static binary | `.tar.gz` |
 | python | `ruff check`, `ruff format --check` | `pytest` via `uv` | wheel via `uv build` | wheel |
 | rust | `cargo fmt --check`, `cargo clippy` | `cargo test` | release binary | `.tar.gz` |
+| container | `hadolint` | `docker run` or `container-test.sh` | image via `docker buildx` | OCI image tarball |
+
+When a project lists more than one toolchain, targets with the same name run
+in the order listed. `toolchains: [go, container]` builds the Go binary and
+then the image that copies it.

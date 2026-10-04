@@ -1,0 +1,22 @@
+# Container images built with BuildKit (docker buildx). Listed after a language
+# toolchain, for example [go, container], its targets run after that
+# language's targets of the same name: the image is built from the binary.
+# In the air-gapped network, base images come from the internal registry and
+# are pinned by digest.
+setup:
+  mise:
+    hadolint: "2.15.1"
+targets:
+  lint:
+    command: hadolint Dockerfile
+    inputs: ["{projectRoot}/Dockerfile"]
+  build:
+    command: docker buildx build --load -t {name}:ci .
+    cache: false
+  test:
+    command: if [ -x container-test.sh ]; then ./container-test.sh {name}:ci; else docker run --rm {name}:ci; fi
+    dependsOn: [build]
+    cache: false
+  package:
+    command: mkdir -p dist && docker buildx build --output type=oci,dest=dist/{name}-image.tar .
+    cache: false
