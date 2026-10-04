@@ -35,3 +35,4 @@ toolchain's `template/`, a `service.yaml` and a `guardrails.yaml` with defaults.
 | --- | --- | --- | --- | --- |
 | typescript | `tsc --noEmit` | `node --test` | `tsc` | `npm pack` |
 | go | `gofmt -l`, `go vet` | `go test` | static binary | `.tar.gz` |
+| python | `ruff check`, `ruff format --check` | `pytest` via `uv` | wheel via `uv build` | wheel |
