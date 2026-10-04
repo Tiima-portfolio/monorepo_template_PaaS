@@ -1,3 +1,2 @@
-export function greeting(name: string): string {
-  return `Hello from catalog, ${name}`;
-}
+export { greeting } from './greeting.ts';
+export { listProducts, type Product } from './products.ts';
