@@ -22,6 +22,15 @@ const registry = env.FACTORY_REGISTRY || `ghcr.io/${repo.toLowerCase()}`;
 
 const sh = (cmd, args, opts = {}) => (execFileSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }) || '').trim();
 const git = (...a) => sh('git', a);
+// gh with stderr captured (and echoed), so a refusal can be recognised.
+const gh = (args) => {
+  try {
+    return sh('gh', args, { stdio: ['ignore', 'inherit', 'pipe'] });
+  } catch (e) {
+    if (e.stderr) process.stderr.write(e.stderr);
+    throw e;
+  }
+};
 const tryRun = (fn) => { try { return fn(); } catch { return null; } };
 const lines = (s) => (s ? s.split('\n').filter(Boolean) : []);
 
@@ -93,12 +102,12 @@ function publish(r) {
   }
   const assets = files.filter((x) => !x.endsWith('-image.tar'));
   if (!existing) {
-    sh('gh', ['release', 'create', r.tag, '--repo', repo, '--draft', '--target', r.sha, '--title', r.tag, '--notes', changelog(r.service, root, r.sha), ...assets], { stdio: 'inherit' });
+    gh(['release', 'create', r.tag, '--repo', repo, '--draft', '--target', r.sha, '--title', r.tag, '--notes', changelog(r.service, root, r.sha), ...assets]);
   } else if (assets.length) {
-    sh('gh', ['release', 'upload', r.tag, '--repo', repo, '--clobber', ...assets], { stdio: 'inherit' });
+    gh(['release', 'upload', r.tag, '--repo', repo, '--clobber', ...assets]);
   }
   // Then the tag: publishing the draft creates <service>/v<version>.
-  sh('gh', ['release', 'edit', r.tag, '--repo', repo, '--draft=false'], { stdio: 'inherit' });
+  gh(['release', 'edit', r.tag, '--repo', repo, '--draft=false']);
   tags.push(r.tag);
   console.log(`Released ${r.tag}`);
 }
@@ -128,7 +137,7 @@ try {
   // Reconcile: a published tag whose release is still a draft gets published.
   for (const r of releases.filter((x) => x.isDraft && !plan.some((p) => p.tag === x.tagName))) {
     if (tryRun(() => git('rev-parse', '-q', '--verify', `refs/tags/${r.tagName}`))) {
-      sh('gh', ['release', 'edit', r.tagName, '--repo', repo, '--draft=false'], { stdio: 'inherit' });
+      gh(['release', 'edit', r.tagName, '--repo', repo, '--draft=false']);
       console.log(`Reconciled ${r.tagName}`);
     } else {
       console.log(`::warning::Draft release ${r.tagName} has no tag yet; it will be published when its commit is released.`);
