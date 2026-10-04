@@ -7,6 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { decide } from './admission.mjs';
 import { approvalsMet } from './owners.mjs';
+import { feedbackBudget } from './budgets.mjs';
 import { loadPolicy } from './lib/policy.mjs';
 
 const dir = process.env.FACTORY_IN || 'factory-in';
@@ -37,6 +38,10 @@ if (approvers && gate.approvals) {
 }
 const jobs = readJson(process.env.FACTORY_JOBS_FILE);
 const run = readJson(process.env.FACTORY_RUN_FILE);
+if (run?.run_started_at && gate.tier) {
+  const b = feedbackBudget(gate.tier, run.run_started_at, new Date(), loadPolicy('budgets'));
+  records.push({ check: 'time-budget', status: b.ok ? 'pass' : 'fail', sha: gate.sha, details: `${b.minutes} min for ${gate.tier}, budget ${b.budget}, hard limit ${b.hard}` });
+}
 const result = decide({ ...gate, records, jobs, run });
 const out = process.env.FACTORY_OUT || '.';
 fs.writeFileSync(path.join(out, 'admission.md'), result.summary + '\n');

@@ -20,16 +20,17 @@ evidence:
   mutation-score:       { mode: shadow,  about: "Mutation score on the diff" }
   integration-broad:    { mode: shadow,  about: "Broad integration tests" }
   # Shadow until real owner teams exist: in a template every PR has one author.
+  time-budget:          { mode: shadow,  about: "PR feedback time within the tier's budget in budgets.yaml" }
   owner-checks:         { mode: enforce, about: "The owners' own required checks from guardrails.yaml" }
   regression-test:      { mode: enforce, about: "escape-fix: the new test fails on the parent commit and passes with the fix" }
   owner-approval:       { mode: shadow,  about: "Approvals routed from each service's owner and guardrails.yaml" }
 
 tiers:
-  R0: [boundary, title, history, format-lint]
-  R1: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, coverage-ratchet, test-quality, owner-approval]
-  R2: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, coverage-ratchet, test-quality,
+  R0: [boundary, title, history, format-lint, time-budget]
+  R1: [boundary, title, history, format-lint, time-budget, build, unit-tests, dependency-rules, diff-coverage, coverage-ratchet, test-quality, owner-approval]
+  R2: [boundary, title, history, format-lint, time-budget, build, unit-tests, dependency-rules, diff-coverage, coverage-ratchet, test-quality,
        contract-tests, integration-selected, mutation-score, owner-approval]
-  R3: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, coverage-ratchet, test-quality,
+  R3: [boundary, title, history, format-lint, time-budget, build, unit-tests, dependency-rules, diff-coverage, coverage-ratchet, test-quality,
        contract-tests, integration-selected, mutation-score, integration-broad, owner-approval]
 
 # Added on top of the tier when the condition holds.
