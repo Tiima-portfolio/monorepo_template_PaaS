@@ -40,6 +40,7 @@ jobs:
       affected: ${{ steps.gate.outputs.affected }}
       has_tools: ${{ steps.gate.outputs.has_tools }}
       escape_fix: ${{ steps.gate.outputs.escape_fix }}
+      owner_checks: ${{ steps.gate.outputs.owner_checks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -162,6 +163,16 @@ jobs:
       - name: Unit tests
         # Retries, flake confirmation and quarantine: see ci/factory/flaky.mjs.
         run: FACTORY_QUARANTINE_FILE=quarantine.json node "$TESTRUN"
+      - name: Owners' required checks
+        if: needs.gate.outputs.owner_checks != ''
+        env:
+          OWNER_CHECKS: ${{ needs.gate.outputs.owner_checks }}
+        run: |
+          code=0
+          for check in $OWNER_CHECKS; do
+            npx nx run "$check" --outputStyle=static || code=1
+          done
+          node "$RECORD" owner-checks "$code" "$OWNER_CHECKS"
       - name: Regression test (escape-fix)
         if: needs.gate.outputs.escape_fix == 'true'
         run: |

@@ -21,6 +21,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `deps.mjs` | Dependency directions between boundaries and no cycles, from `invariants.yaml` |
 | `queue.mjs` | Merge queue controller: priorities, backpressure, rule changes alone, agent limits |
 | `promote.mjs` | Promotion bot: bump PRs for consumers that pin a released service in `pins.yaml` |
+| `guardrails.mjs` | Owners' required checks and their rules for agents, from `guardrails.yaml` |
 | `test-quality.mjs` | Flags skipped and assertion-free tests in changed files |
 | `contracts.mjs` | Declared contracts exist and each consumes edge has a contract test |
 
