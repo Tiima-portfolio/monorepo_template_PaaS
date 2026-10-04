@@ -40,3 +40,9 @@ test('mutation score counts only changed lines', () => {
   assert.equal(r.pct, 50);
   assert.deepEqual(r.survivors, ['a.go:4 CONDITIONALS_BOUNDARY']);
 });
+
+test('a mutant spanning several lines counts when any of them changed', () => {
+  const report = { files: [{ file_name: 'a.py', mutations: [{ line: 3, end_line: 6, status: 'LIVED' }] }] };
+  assert.equal(diffMutation(new Map([['a.py', new Set([5])]]), report).total, 1);
+  assert.equal(diffMutation(new Map([['a.py', new Set([7])]]), report).total, 0);
+});
