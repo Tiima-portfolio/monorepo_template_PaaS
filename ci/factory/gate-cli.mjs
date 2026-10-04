@@ -17,6 +17,7 @@ import { classify, testOnly } from './risk.mjs';
 import { requiredEvidence } from './evidence.mjs';
 import { checkTitle, checkHistory, checkProvenance } from './checks.mjs';
 import { loadPolicy } from './lib/policy.mjs';
+import { miseToml } from './lib/mise.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -113,7 +114,7 @@ for (const tc of aff.toolchains) {
   const file = path.join('internal-tools/toolchains', tc, 'toolchain.yaml');
   if (fs.existsSync(file)) Object.assign(tools, YAML.parse(fs.readFileSync(file, 'utf8'))?.setup?.mise || {});
 }
-fs.writeFileSync(path.join(out, 'mise.toml'), `[tools]\n${Object.entries(tools).map(([k, v]) => `${JSON.stringify(k)} = ${JSON.stringify(String(v))}`).join('\n')}\n`);
+fs.writeFileSync(path.join(out, 'mise.toml'), miseToml(tools));
 
 const gate = {
   sha, base, head, event: eventName, tier: risk.tier, reasons: risk.reasons, boundary: boundary.boundary,
