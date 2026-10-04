@@ -1,4 +1,4 @@
 # Versions of other services this simulator is verified against. The factory's
 # promotion bot opens a PR to bump a pin when that service releases.
 pins:
-  orders: 0.1.4
+  orders: 0.1.5
