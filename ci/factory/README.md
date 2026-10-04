@@ -25,6 +25,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `budgets.mjs` | PR feedback time against the tier's budget in `budgets.yaml` |
 | `metrics-report.mjs` | Weekly flow and outcome metrics, posted as an issue |
 | `network.mjs` | Air-gap check: lock files, Dockerfiles and toolchains use only allowed hosts |
+| `backpressure.mjs` | Agent open-PR caps and the sponsoring team's review budget |
 | `test-quality.mjs` | Flags skipped and assertion-free tests in changed files |
 | `contracts.mjs` | Declared contracts exist and each consumes edge has a contract test |
 

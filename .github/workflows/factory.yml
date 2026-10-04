@@ -89,6 +89,8 @@ jobs:
         id: gate
         # Hard limit for the gate itself, from ci/policy/budgets.yaml.
         timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: FACTORY_QUARANTINE_FILE=quarantine.json FACTORY_POLICY_DIR="$FACTORY_CODE/policy" node "$FACTORY_CODE/factory/gate-cli.mjs"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
