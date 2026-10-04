@@ -1,12 +1,37 @@
 {
-  "_optional": "GitHub lets the GitHub Actions app bypass rulesets only in organization-owned repositories; without that bypass the release job could not create tags",
+  "_note": "actor 5186690 is the tiima-factory GitHub App, which creates release tags; a copy of this template puts its own factory App id here",
   "name": "release-tags",
   "target": "tag",
   "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["refs/tags/*/v*"], "exclude": [] } },
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/tags/*/v*"
+      ],
+      "exclude": []
+    }
+  },
   "bypass_actors": [
-    { "actor_id": 15368, "actor_type": "Integration", "bypass_mode": "always" },
-    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+    {
+      "actor_id": 5186690,
+      "actor_type": "Integration",
+      "bypass_mode": "always"
+    },
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
   ],
-  "rules": [{ "type": "creation" }, { "type": "update" }, { "type": "deletion" }]
+  "rules": [
+    {
+      "type": "creation"
+    },
+    {
+      "type": "update"
+    },
+    {
+      "type": "deletion"
+    }
+  ]
 }
