@@ -17,6 +17,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `flaky.mjs`, `test-run.mjs` | Test retries, flake confirmation and time-limited quarantine |
 | `coverage.mjs`, `diff-coverage-cli.mjs` | Diff coverage of changed lines against `test-adequacy.yaml` and owner guardrails |
 | `regression-cli.mjs` | For escape-fix PRs: the new test fails on the parent commit |
+| `deps.mjs` | Dependency directions between boundaries and no cycles, from `invariants.yaml` |
 
 Run the tests:
 
