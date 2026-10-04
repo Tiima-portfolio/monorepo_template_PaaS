@@ -8,7 +8,7 @@
 // release with its files, and the image in the registry) and only then
 // publishes the release, which creates the <service>/v<version> tag.
 //
-// Env: GITHUB_REPOSITORY, GH_TOKEN, FACTORY_REGISTRY (default
+// Env: GITHUB_REPOSITORY, GH_TOKEN, FACTORY_REGISTRY_TOKEN, FACTORY_REGISTRY (default
 // ghcr.io/<owner>/<repo>), FACTORY_DRY_RUN=true to only print the plan.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -118,7 +118,7 @@ function publish(r) {
   for (const f of files.filter((x) => x.endsWith('-image.tar'))) {
     // An OCI layout has an oci-layout file; otherwise it's a docker save archive.
     const format = sh('tar', ['-tf', f]).split('\n').includes('oci-layout') ? 'oci-archive' : 'docker-archive';
-    sh('skopeo', ['copy', '--dest-creds', `${env.GITHUB_ACTOR}:${env.GH_TOKEN}`, `${format}:${f}`, `docker://${registry}/${r.service}:${r.version}`], { stdio: 'inherit' });
+    sh('skopeo', ['copy', '--dest-creds', `${env.GITHUB_ACTOR}:${env.FACTORY_REGISTRY_TOKEN || env.GH_TOKEN}`, `${format}:${f}`, `docker://${registry}/${r.service}:${r.version}`], { stdio: 'inherit' });
   }
   const assets = files.filter((x) => !x.endsWith('-image.tar'));
   if (!existing) {
@@ -134,7 +134,7 @@ function publish(r) {
 
 // GitHub refuses a release on an older commit when the workflow files have
 // changed since, unless the token may write workflows (GITHUB_TOKEN can't).
-// Without FACTORY_RELEASE_TOKEN such a release is skipped with a warning
+// Without the factory App's token such a release is skipped with a warning
 // instead of blocking every later release.
 const refused = [];
 function tryPublish(r) {
@@ -144,7 +144,7 @@ function tryPublish(r) {
     const text = `${e.message}\n${e.stderr || ''}`;
     if (!/Resource not accessible by integration|refusing to allow/.test(text)) throw e;
     refused.push(r);
-    console.log(`::warning::GitHub refused to create ${r.tag} with this token. Set the FACTORY_RELEASE_TOKEN secret (a GitHub App token with contents and workflows write) and re-run to release it.`);
+    console.log(`::warning::GitHub refused to create ${r.tag} with this token. Set the FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets (a GitHub App with contents and workflows write); the next run releases it.`);
   }
 }
 
@@ -174,7 +174,7 @@ try {
       console.log(`::warning::Draft release ${r.tagName} has no tag yet; it will be published when its commit is released.`);
     }
   }
-  if (refused.length) console.log(`Waiting for FACTORY_RELEASE_TOKEN: ${refused.map((r) => r.tag).join(', ')}`);
+  if (refused.length) console.log(`Waiting for the factory App token: ${refused.map((r) => r.tag).join(', ')}`);
 } finally {
   git('reset', '-q', '--hard');
   git('checkout', '-q', start);
