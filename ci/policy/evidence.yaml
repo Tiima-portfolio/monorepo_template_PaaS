@@ -13,6 +13,7 @@ evidence:
   history:              { mode: enforce, about: "No merge commits in the PR" }
   dependency-rules:     { mode: shadow,  about: "Dependency directions and no cycles" }
   diff-coverage:        { mode: shadow,  about: "Changed lines covered by unit tests" }
+  test-quality:         { mode: shadow,  about: "No skipped or assertion-free tests in changed files" }
   contract-tests:       { mode: shadow,  about: "Contract and consumer contract tests" }
   integration-selected: { mode: shadow,  about: "Selected integration tests" }
   mutation-score:       { mode: shadow,  about: "Mutation score on the diff" }
@@ -23,10 +24,10 @@ evidence:
 
 tiers:
   R0: [boundary, title, history, format-lint]
-  R1: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, owner-approval]
-  R2: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage,
+  R1: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, test-quality, owner-approval]
+  R2: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, test-quality,
        contract-tests, integration-selected, mutation-score, owner-approval]
-  R3: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage,
+  R3: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, test-quality,
        contract-tests, integration-selected, mutation-score, integration-broad, owner-approval]
 
 # Added on top of the tier when the condition holds.

@@ -21,6 +21,7 @@ import { miseToml } from './lib/mise.mjs';
 import { route } from './owners.mjs';
 import { activeQuarantine } from './flaky.mjs';
 import { checkDependencies } from './deps.mjs';
+import { lintTestFile } from './test-quality.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -123,6 +124,10 @@ record('boundary', boundary.ok, boundary.message);
 record('title', title.ok, title.message);
 record('history', history.ok, history.message);
 record('provenance', provenance.ok, provenance.message);
+{
+  const problems = files.filter((f) => fs.existsSync(f)).flatMap((f) => lintTestFile(f, fs.readFileSync(f, 'utf8')));
+  record('test-quality', problems.length === 0, problems.length ? problems.join('; ') : 'no skipped or assertion-free tests in changed files');
+}
 if (aff.graph) {
   const problems = checkDependencies(aff.graph);
   record('dependency-rules', problems.length === 0, problems.length ? problems.join('; ') : 'dependency directions and no cycles');
