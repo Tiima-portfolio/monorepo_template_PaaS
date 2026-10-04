@@ -1,0 +1,23 @@
+# Merge queue controller. GitHub's merge queue has no priorities, only
+# "jump to the front", so the controller decides what enters it and when.
+
+# Label a PR "ready" to ask for a merge; priority comes from a P0..P4 label.
+ready_label: ready
+default_priority:
+  human: P1
+  agent: P3
+
+# Backpressure: at or above this many queue entries, these priorities wait.
+# P0 to P2 always enter.
+hold_at_depth:
+  P4: 10
+  P3: 15
+max_depth: 20
+
+# Changes to the factory's own rules merge alone, so no other PR is judged by
+# rules that change in the same batch.
+rule_change_paths:
+  - "ci/policy/**"
+  - "ci/factory/**"
+  - ".github/**"
+  - "**/guardrails.yaml"

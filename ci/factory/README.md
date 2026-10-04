@@ -18,6 +18,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `coverage.mjs`, `diff-coverage-cli.mjs` | Diff coverage of changed lines against `test-adequacy.yaml` and owner guardrails |
 | `regression-cli.mjs` | For escape-fix PRs: the new test fails on the parent commit |
 | `deps.mjs` | Dependency directions between boundaries and no cycles, from `invariants.yaml` |
+| `queue.mjs` | Merge queue controller: priorities, backpressure, rule changes alone, agent limits |
 | `test-quality.mjs` | Flags skipped and assertion-free tests in changed files |
 | `contracts.mjs` | Declared contracts exist and each consumes edge has a contract test |
 

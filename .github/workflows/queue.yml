@@ -1,0 +1,54 @@
+# Merge queue controller: enqueues PRs labelled "ready" by priority, with
+# backpressure, rule changes merged alone, and per-agent limits.
+name: queue
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_run:
+    workflows: [factory]
+    types: [completed]
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: queue-controller
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  enqueue:
+    name: factory/queue
+    runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    env:
+      HAS_APP: ${{ secrets.FACTORY_APP_PRIVATE_KEY != '' && secrets.FACTORY_APP_ID != '' }}
+    steps:
+      - id: app
+        if: env.HAS_APP == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.FACTORY_APP_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+      - name: Needs the factory App
+        if: steps.app.outputs.token == ''
+        run: echo "::warning::The queue controller needs the factory App token; merge_group runs don't start for PRs enqueued with GITHUB_TOKEN. Skipping."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.app.outputs.token != ''
+        with:
+          sparse-checkout: ci
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.app.outputs.token != ''
+        with:
+          node-version: 24
+      - if: steps.app.outputs.token != ''
+        run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: Enqueue
+        if: steps.app.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: node ci/factory/queue-cli.mjs
