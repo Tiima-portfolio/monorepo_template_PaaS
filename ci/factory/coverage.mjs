@@ -93,3 +93,22 @@ export function ratchet(totals, previous, tolerance = 0.5) {
   }
   return drops;
 }
+
+// Mutation score on changed lines from a mutation/report.json (files[] with
+// mutations[] of { line, status }). Only KILLED and LIVED mutants count.
+export function diffMutation(added, report) {
+  let killed = 0;
+  let lived = 0;
+  const survivors = [];
+  for (const f of report.files || []) {
+    const lines = added.get(f.file_name);
+    if (!lines) continue;
+    for (const m of f.mutations || []) {
+      if (!lines.has(m.line)) continue;
+      if (m.status === 'KILLED') killed++;
+      else if (m.status === 'LIVED') { lived++; survivors.push(`${f.file_name}:${m.line} ${m.type || ''}`.trim()); }
+    }
+  }
+  const total = killed + lived;
+  return { killed, lived, total, pct: total ? Math.round((killed / total) * 1000) / 10 : null, survivors };
+}

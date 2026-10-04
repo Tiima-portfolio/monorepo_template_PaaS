@@ -168,6 +168,13 @@ jobs:
           script=.factory/ci/factory/regression-cli.mjs
           [ -f "$script" ] || script=ci/factory/regression-cli.mjs
           node "$script"
+      - name: Mutation score (R2 and above)
+        if: needs.gate.outputs.tier == 'R2' || needs.gate.outputs.tier == 'R3'
+        run: |
+          npx nx affected -t mutation --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static || true
+          script=.factory/ci/factory/mutation-cli.mjs
+          [ -f "$script" ] || script=ci/factory/mutation-cli.mjs
+          FACTORY_GATE=gate/gate.json node "$script"
       # main's coverage per project, for the ratchet. Caches saved on main are
       # readable from PRs, but a PR can't write to main's cache scope.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
