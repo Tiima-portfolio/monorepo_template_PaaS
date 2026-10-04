@@ -1,0 +1,24 @@
+# Where builds may fetch packages and images from. In the air-gapped network
+# list only the internal mirrors here; this template runs on GitHub-hosted
+# runners, so the public registries are allowed for now.
+allowed_hosts:
+  - registry.npmjs.org
+  - pypi.org
+  - files.pythonhosted.org
+  - proxy.golang.org
+  - index.crates.io
+  - static.crates.io
+  - ghcr.io
+  - docker.io
+  # - npm.<internal-domain>
+  # - registry.<internal-domain>
+
+# Files whose added lines are checked for package or image sources.
+checked_files:
+  - "**/package-lock.json"
+  - "**/uv.lock"
+  - "**/go.sum"
+  - "**/Cargo.lock"
+  - "**/.npmrc"
+  - "**/Dockerfile"
+  - "internal-tools/toolchains/*/toolchain.yaml"

@@ -24,6 +24,7 @@ import { checkDependencies } from './deps.mjs';
 import { lintTestFile } from './test-quality.mjs';
 import { contractProblems } from './contracts.mjs';
 import { agentGuardrails, ownerChecks } from './guardrails.mjs';
+import { networkProblems } from './network.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -125,6 +126,17 @@ const requester = commits.map((c) => /^Requested-By:\s*(\S+)/m.exec(c.message)?.
 record('boundary', boundary.ok, boundary.message);
 record('title', title.ok, title.message);
 record('history', history.ok, history.message);
+{
+  // Air-gap check on the lines this PR adds.
+  const added = new Map();
+  let file = null;
+  for (const line of git('diff', '-U0', `${base}...${head}`).split('\n')) {
+    if (line.startsWith('+++ ')) { file = line.startsWith('+++ b/') ? line.slice(6) : null; if (file) added.set(file, []); }
+    else if (file && line.startsWith('+') ) added.get(file).push(line.slice(1));
+  }
+  const problems = networkProblems(added, loadPolicy('network'));
+  record('network', problems.length === 0, problems.length ? problems.slice(0, 10).join('; ') : 'only allowed package and image hosts');
+}
 // Lead time and escapes are reported per feature as well as per service.
 const featureId = [pr.body || '', ...commits.map((c) => c.message)].map((t) => /^Feature-Id:\s*(\S+)/m.exec(t)?.[1]).find(Boolean);
 record('feature-id', !isPR || !!featureId, !isPR ? 'checked on each PR' : featureId ? `Feature-Id: ${featureId}` : 'add a Feature-Id: line to the PR description');
