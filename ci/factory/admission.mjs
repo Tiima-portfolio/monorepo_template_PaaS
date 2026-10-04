@@ -25,8 +25,30 @@ export function decide(input) {
     rows.push({ name: 'human-approval', mode: 'enforce', about: 'Agent PR above its trust level', status: approval ? 'pass' : 'missing', details: approval?.details || '' });
     if (!approval) blocking.push('human-approval (missing)');
   }
+  // Pass or fail comes from GitHub's own record of the jobs, not only from the
+  // records the jobs wrote.
+  if (input.jobs) {
+    for (const problem of jobProblems(input)) blocking.push(problem);
+  }
   const allowed = blocking.length === 0;
   return { allowed, blocking, rows, summary: summary(input, rows, allowed, blocking) };
+}
+
+// input.jobs: [{ name, conclusion }] from the GitHub API for this run.
+// input.run: { path, head_sha } of this workflow run.
+export function jobProblems(input) {
+  const problems = [];
+  const job = (name) => input.jobs.find((j) => j.name === name);
+  const gate = job('factory/gate');
+  if (!gate || gate.conclusion !== 'success') problems.push(`factory/gate job ${gate ? gate.conclusion : 'missing'}`);
+  const verify = job('factory/verify');
+  const expected = (input.affected || []).length ? ['success'] : ['success', 'skipped'];
+  if (!verify || !expected.includes(verify.conclusion)) problems.push(`factory/verify job ${verify ? verify.conclusion : 'missing'}`);
+  if (input.run) {
+    if (input.run.path && !input.run.path.startsWith('.github/workflows/factory.yml')) problems.push(`evidence came from ${input.run.path}, not the factory workflow`);
+    if (input.run.head_sha && input.run.head_sha !== input.sha) problems.push('workflow run is for another commit');
+  }
+  return problems;
 }
 
 function summary(input, rows, allowed, blocking) {

@@ -4,6 +4,7 @@
 // writes the summary and exits non-zero when the merge is blocked.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { decide } from './admission.mjs';
 
 const dir = process.env.FACTORY_IN || 'factory-in';
@@ -19,10 +20,32 @@ const records = all
   .filter((f) => f.includes(`${path.sep}evidence${path.sep}`) && f.endsWith('.json'))
   .map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
 
-const result = decide({ ...gate, records });
+const readJson = (f) => (f && fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : undefined);
+const jobs = readJson(process.env.FACTORY_JOBS_FILE);
+const run = readJson(process.env.FACTORY_RUN_FILE);
+const result = decide({ ...gate, records, jobs, run });
 const out = process.env.FACTORY_OUT || '.';
 fs.writeFileSync(path.join(out, 'admission.md'), result.summary + '\n');
 fs.writeFileSync(path.join(out, 'admission.json'), JSON.stringify({ allowed: result.allowed, blocking: result.blocking, tier: gate.tier, sha: gate.sha }, null, 2));
+// The evidence bundle for this commit: what was required, what was present,
+// what GitHub says the jobs did, and the decision.
+const bundle = {
+  version: 1,
+  sha: gate.sha,
+  tree: gate.tree,
+  event: gate.event,
+  run: { id: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT, ...(run || {}) },
+  jobs: jobs || [],
+  tier: gate.tier,
+  reasons: gate.reasons,
+  boundary: gate.boundary,
+  override: gate.override,
+  required: gate.required,
+  records: records.map((r) => ({ ...r, digest: crypto.createHash('sha256').update(JSON.stringify(r)).digest('hex') })),
+  decision: { allowed: result.allowed, blocking: result.blocking },
+  decided_at: new Date().toISOString(),
+};
+fs.writeFileSync(path.join(out, 'bundle.json'), JSON.stringify(bundle, null, 2));
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, result.summary + '\n');
 console.log(result.summary);
 process.exit(result.allowed ? 0 : 1);
