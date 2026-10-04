@@ -69,3 +69,13 @@ jobs:
           git config user.name "factory-release"
           git config user.email "factory-release@users.noreply.github.com"
           node ci/factory/release-cli.mjs
+      - name: Promote to consumers
+        if: steps.app.outputs.token != ''
+        env:
+          # The App token, so the bump PRs start the factory.
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          git config user.name "tiima-factory[bot]"
+          git config user.email "tiima-factory[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          node ci/factory/promote-cli.mjs
