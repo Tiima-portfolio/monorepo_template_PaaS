@@ -161,6 +161,11 @@ jobs:
       - name: Unit tests
         # Retries, flake confirmation and quarantine: see ci/factory/flaky.mjs.
         run: FACTORY_QUARANTINE_FILE=quarantine.json node "$TESTRUN"
+      - name: Diff coverage
+        run: |
+          script=.factory/ci/factory/diff-coverage-cli.mjs
+          [ -f "$script" ] || script=ci/factory/diff-coverage-cli.mjs
+          FACTORY_GATE=gate/gate.json node "$script"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-verify
