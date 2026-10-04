@@ -23,3 +23,9 @@ targets:
   package:
     command: ls dist/*.whl
     dependsOn: [build]
+  # Mutation testing with mutmut (from the package index), converted to the
+  # factory's mutation/report.json.
+  mutation:
+    command: uv run --with mutmut mutmut run >/dev/null; uv run --with mutmut python {toolchainDir}/mutmut_report.py
+    inputs: ["{projectRoot}/src/**/*.py", "{projectRoot}/tests/**/*.py", "{projectRoot}/pyproject.toml"]
+    outputs: ["{projectRoot}/mutation"]

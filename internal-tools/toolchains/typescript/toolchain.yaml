@@ -27,3 +27,10 @@ targets:
     command: npm version "${FACTORY_VERSION:-0.0.0}" --no-git-tag-version --allow-same-version && npm pack --pack-destination dist
     dependsOn: [build]
     outputs: ["{projectRoot}/dist/*.tgz"]
+  # Mutation testing with Stryker (from the package mirror), converted to the
+  # factory's mutation/report.json.
+  mutation:
+    command: mkdir -p mutation && npx --yes @stryker-mutator/core@10.0.0 run {toolchainDir}/stryker.json && node {toolchainDir}/stryker-report.mjs
+    dependsOn: [install]
+    inputs: ["{projectRoot}/src/**/*"]
+    outputs: ["{projectRoot}/mutation"]

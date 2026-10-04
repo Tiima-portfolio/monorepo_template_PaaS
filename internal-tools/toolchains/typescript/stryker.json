@@ -1,0 +1,12 @@
+{
+  "$comment": "Stryker config for the TypeScript mutation target; paths are relative to the project. In place, so tests that read sibling folders keep working; Stryker restores the files afterwards.",
+  "testRunner": "command",
+  "commandRunner": { "command": "node --test" },
+  "mutate": ["src/**/*.ts", "!src/**/*.test.ts"],
+  "reporters": ["json"],
+  "jsonReporter": { "fileName": "mutation/stryker.json" },
+  "inPlace": true,
+  "tsconfigFile": "no-tsconfig-for-stryker.json",
+  "checkers": [],
+  "plugins": []
+}
