@@ -1,0 +1,13 @@
+# Coarse ownership, one line per boundary. Service-level owners live in each
+# service.yaml and are enforced by factory/admission, so adding a service never
+# changes this file. Replace @Tiima with your teams, for example
+# @your-org/platform-team.
+*                       @Tiima
+/product/               @Tiima
+/internal-tools/        @Tiima
+/internal-services/     @Tiima
+/ci/                    @Tiima
+/.github/               @Tiima
+/platform/              @Tiima
+/test-framework/        @Tiima
+/docs/                  @Tiima

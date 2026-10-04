@@ -37,7 +37,7 @@ function trailers(message) {
 // input: { author, commits: [{ sha, message }], files, boundary, tier }
 export function checkProvenance(input, policy = loadPolicy('agents')) {
   const agent = policy.agents.find((a) => a.account === input.author);
-  if (!agent) return { ok: true, isAgent: false, needsHuman: false, message: 'Human author' };
+  if (!agent) return { ok: true, isAgent: false, needsHuman: false, raise: [], message: 'Human author' };
 
   const problems = [];
   for (const c of input.commits || []) {
