@@ -1,4 +1,5 @@
 {
+  "_optional": "GitHub offers merge queues only for organization-owned repositories",
   "name": "merge-queue",
   "target": "branch",
   "enforcement": "active",

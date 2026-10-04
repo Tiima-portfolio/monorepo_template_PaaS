@@ -24,10 +24,26 @@ export function normalize(r) {
   return sortKeys({ name: r.name, target: r.target, enforcement: r.enforcement, conditions: r.conditions, bypass_actors: bypass, rules });
 }
 
+// Only the parameters a file sets are compared: GitHub adds defaults for new
+// options, which shouldn't count as drift.
+function onlyWanted(want, have) {
+  const rules = (have.rules || []).map((r) => {
+    const w = (want.rules || []).find((x) => x.type === r.type);
+    if (!w?.parameters || !r.parameters) return r;
+    return { ...r, parameters: Object.fromEntries(Object.keys(w.parameters).map((k) => [k, r.parameters[k]])) };
+  });
+  return { ...have, rules };
+}
+
+// Keys starting with "_" are ours, never sent to GitHub.
+export function apiBody(want) {
+  return Object.fromEntries(Object.entries(want).filter(([k]) => !k.startsWith('_')));
+}
+
 export function diff(want, have) {
   if (!have) return ['missing'];
-  const a = normalize(want);
-  const b = normalize(have);
+  const a = normalize(apiBody(want));
+  const b = normalize(onlyWanted(want, have));
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 
@@ -44,16 +60,22 @@ function main(mode) {
       console.log(`${want.name}: matches ${f}`);
       continue;
     }
-    drift++;
-    console.log(`${want.name}: differs from ${f} (${changed.join(', ')})`);
+    const optional = want._optional;
+    console.log(`${want.name}: differs from ${f} (${changed.join(', ')})${optional ? ` (optional: ${optional})` : ''}`);
     if (mode === 'apply') {
-      const body = JSON.stringify(want);
-      if (have) api(['-X', 'PUT', `repos/${repo}/rulesets/${have.id}`, '--input', '-'], body);
-      else api(['-X', 'POST', `repos/${repo}/rulesets`, '--input', '-'], body);
-      console.log(`${want.name}: ${have ? 'updated' : 'created'}`);
+      const body = JSON.stringify(apiBody(want));
+      try {
+        if (have) api(['-X', 'PUT', `repos/${repo}/rulesets/${have.id}`, '--input', '-'], body);
+        else api(['-X', 'POST', `repos/${repo}/rulesets`, '--input', '-'], body);
+        console.log(`${want.name}: ${have ? 'updated' : 'created'}`);
+        continue;
+      } catch (e) {
+        console.log(`${want.name}: GitHub refused it: ${(e.stdout || e.message).trim()}`);
+      }
     }
+    if (!optional) drift++;
   }
-  if (mode === 'check' && drift) {
+  if (drift) {
     console.log(`::warning::${drift} ruleset(s) differ from .github/rulesets/. Run: node ci/factory/rulesets.mjs apply`);
     process.exit(1);
   }
