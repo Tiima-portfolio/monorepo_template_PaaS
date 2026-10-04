@@ -26,7 +26,7 @@ jobs:
     name: factory/release
     runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
     env:
-      HAS_APP: ${{ secrets.FACTORY_APP_PRIVATE_KEY != '' }}
+      HAS_APP: ${{ secrets.FACTORY_APP_PRIVATE_KEY != '' && secrets.FACTORY_APP_ID != '' }}
     steps:
       # A short-lived token for the factory GitHub App, minted from the
       # FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets. Without them the
