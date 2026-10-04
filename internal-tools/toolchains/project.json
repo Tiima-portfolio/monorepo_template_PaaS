@@ -1,0 +1,12 @@
+{
+  "name": "toolchains",
+  "root": "internal-tools/toolchains",
+  "tags": ["boundary:internal-tool"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "node --test test/*.test.mjs", "cwd": "internal-tools/toolchains" },
+      "cache": true
+    }
+  }
+}

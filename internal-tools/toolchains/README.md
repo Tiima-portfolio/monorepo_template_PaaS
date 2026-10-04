@@ -18,3 +18,19 @@ the Nx project graph from them. To add a language, add a folder with a
 
 `{name}` and `{projectRoot}` in a toolchain's commands and inputs are
 replaced per project. Commands run with the project root as working directory.
+
+## Creating a project
+
+```bash
+node internal-tools/toolchains/new-service.mjs --name orders --lang typescript --owner team-orders
+```
+
+`--kind` is `product` (default), `internal-service` or `internal-tool`, and
+`--with container` adds a second toolchain. The new project gets the
+toolchain's `template/`, a `service.yaml` and a `guardrails.yaml` with defaults.
+
+## Toolchains
+
+| Toolchain | Lint | Test | Build | Package |
+| --- | --- | --- | --- | --- |
+| typescript | `tsc --noEmit` | `node --test` | `tsc` | `npm pack` |
