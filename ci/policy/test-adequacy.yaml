@@ -1,0 +1,6 @@
+# Minimum test strength. Owners may only set stricter values in their
+# service's guardrails.yaml (thresholds.diff_coverage).
+diff_coverage:
+  # Percent of changed executable lines that unit tests run, per criticality.
+  normal: 80
+  critical: 90
