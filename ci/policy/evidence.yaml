@@ -18,6 +18,7 @@ evidence:
   mutation-score:       { mode: shadow,  about: "Mutation score on the diff" }
   integration-broad:    { mode: shadow,  about: "Broad integration tests" }
   # Shadow until real owner teams exist: in a template every PR has one author.
+  regression-test:      { mode: enforce, about: "escape-fix: the new test fails on the parent commit and passes with the fix" }
   owner-approval:       { mode: shadow,  about: "Approvals routed from each service's owner and guardrails.yaml" }
 
 tiers:
@@ -32,3 +33,4 @@ tiers:
 extra:
   agent: [provenance]
   tests_removed: [owner-approval]
+  escape_fix: [regression-test]

@@ -39,6 +39,7 @@ jobs:
       tier: ${{ steps.gate.outputs.tier }}
       affected: ${{ steps.gate.outputs.affected }}
       has_tools: ${{ steps.gate.outputs.has_tools }}
+      escape_fix: ${{ steps.gate.outputs.escape_fix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -161,6 +162,12 @@ jobs:
       - name: Unit tests
         # Retries, flake confirmation and quarantine: see ci/factory/flaky.mjs.
         run: FACTORY_QUARANTINE_FILE=quarantine.json node "$TESTRUN"
+      - name: Regression test (escape-fix)
+        if: needs.gate.outputs.escape_fix == 'true'
+        run: |
+          script=.factory/ci/factory/regression-cli.mjs
+          [ -f "$script" ] || script=ci/factory/regression-cli.mjs
+          node "$script"
       - name: Diff coverage
         run: |
           script=.factory/ci/factory/diff-coverage-cli.mjs
@@ -289,6 +296,11 @@ jobs:
           if [ "$HAS_APP_TOKEN" != "true" ]; then
             note=$'\n\nOpened with GITHUB_TOKEN, so the factory doesn\'t run on it automatically: close and reopen this PR to start it, or set the FACTORY_RELEASE_TOKEN secret.'
           fi
-          gh pr create --base main --head "$branch" --label P0 \
+          revert=$(gh pr create --base main --head "$branch" --label P0 \
             --title "revert: $title" \
-            --body "main failed the post-merge check on $GITHUB_SHA ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). This pure revert takes the P0 lane.$note"
+            --body "main failed the post-merge check on $GITHUB_SHA ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). This pure revert takes the P0 lane.$note")
+          # The failure got past the PR's checks: an escape, to be closed by a
+          # fix whose test fails without it (label the fix PR escape-fix).
+          gh issue create --label escape \
+            --title "escape: $title" \
+            --body "$GITHUB_SHA passed its PR checks but failed on main ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)); reverted in $revert. Re-land it with a test at the lowest level that would have caught this, in a PR labelled escape-fix: the factory checks that the test fails without the fix."
