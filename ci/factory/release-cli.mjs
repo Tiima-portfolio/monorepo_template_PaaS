@@ -131,6 +131,7 @@ function publish(r) {
   // Then the tag: publishing the draft creates <service>/v<version>.
   gh(['release', 'edit', r.tag, '--repo', repo, '--draft=false']);
   tags.push(r.tag);
+  releasedNow.push({ service: r.service, version: r.version, tag: r.tag, sha: r.sha });
   console.log(`Released ${r.tag}`);
 }
 
@@ -139,6 +140,7 @@ function publish(r) {
 // Without the factory App's token such a release is skipped with a warning
 // instead of blocking every later release.
 const refused = [];
+const releasedNow = [];
 function tryPublish(r) {
   try {
     publish(r);
@@ -180,4 +182,6 @@ try {
 } finally {
   git('reset', '-q', '--hard');
   git('checkout', '-q', start);
+  // For the promotion bot.
+  fs.writeFileSync('released.json', JSON.stringify(releasedNow, null, 2));
 }
