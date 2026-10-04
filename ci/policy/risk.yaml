@@ -49,3 +49,4 @@ raise:
   - weak_test_history     # service below its test-adequacy threshold
   - agent_above_trust     # agent PR above the tier its trust level allows alone
   - owning_teams_over_3   # PR needs approval from more than three owning teams
+  - quarantined_tests     # an affected project has a test target in quarantine

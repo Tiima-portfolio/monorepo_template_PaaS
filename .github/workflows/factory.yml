@@ -72,9 +72,15 @@ jobs:
           echo "Override label added by $actor ($perm)"
           # Factory owners: repository admins here; an org uses the team in boundaries.yaml.
           [ "$perm" = "admin" ] && echo "FACTORY_OVERRIDE_OK=true" >> "$GITHUB_ENV" || true
+      - name: Quarantine list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" \
+            --jq '[.[] | {title, created_at}]' > quarantine.json
       - name: Gate
         id: gate
-        run: FACTORY_POLICY_DIR="$FACTORY_CODE/policy" node "$FACTORY_CODE/factory/gate-cli.mjs"
+        run: FACTORY_QUARANTINE_FILE=quarantine.json FACTORY_POLICY_DIR="$FACTORY_CODE/policy" node "$FACTORY_CODE/factory/gate-cli.mjs"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-gate
@@ -85,6 +91,9 @@ jobs:
     name: factory/verify
     needs: gate
     if: needs.gate.outputs.affected != '0'
+    permissions:
+      contents: read
+      issues: read
     runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
     env:
       FACTORY_AFFECTED: ${{ needs.gate.outputs.affected }}
@@ -105,13 +114,24 @@ jobs:
           ref: ${{ env.FACTORY_BASE }}
           path: .factory
           sparse-checkout: ci
-      - name: Use the base branch's record script
+      - name: Use the base branch's record and test scripts
         run: |
           if [ -f .factory/ci/factory/verify-record.mjs ]; then
             echo "RECORD=.factory/ci/factory/verify-record.mjs" >> "$GITHUB_ENV"
           else
             echo "RECORD=ci/factory/verify-record.mjs" >> "$GITHUB_ENV"
           fi
+          if [ -f .factory/ci/factory/test-run.mjs ]; then
+            echo "TESTRUN=.factory/ci/factory/test-run.mjs" >> "$GITHUB_ENV"
+          else
+            echo "TESTRUN=ci/factory/test-run.mjs" >> "$GITHUB_ENV"
+          fi
+      - name: Quarantine list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" \
+            --jq '[.[] | {title, created_at}]' > quarantine.json
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: factory-gate
@@ -135,11 +155,8 @@ jobs:
           code=$?
           node "$RECORD" build "$code" "nx affected -t build"
       - name: Unit tests
-        run: |
-          set +e
-          npx nx affected -t test --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
-          code=$?
-          node "$RECORD" unit-tests "$code" "nx affected -t test"
+        # Retries, flake confirmation and quarantine: see ci/factory/flaky.mjs.
+        run: FACTORY_QUARANTINE_FILE=quarantine.json node "$TESTRUN"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-verify
@@ -169,6 +186,9 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+      # Admission reads policy YAML; the sparse checkout keeps the root
+      # package files, so this installs the workspace's yaml package.
+      - run: npm ci --no-audit --no-fund --ignore-scripts
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: factory-*
@@ -190,6 +210,22 @@ jobs:
             --jq '[group_by(.user.login)[] | last | select(.state == "APPROVED") | .user.login]' | jq -s 'add // []' > approvers.json
       - name: Admission
         run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json node ci/factory/admission-cli.mjs
+      - name: Quarantine confirmed flaky tests
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f=factory-in/factory-verify/flaky.json
+          [ -f "$f" ] || exit 0
+          for p in $(jq -r '.[]' "$f"); do
+            title="quarantine: $p:test"
+            open=$(gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" --jq "[.[] | select(.title == \"$title\")] | length")
+            if [ "$open" = "0" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f labels[]=quarantine \
+                -f body="The $p test target failed and then passed on the same commit, and 20 reruns both passed and failed, so it is flaky. It is quarantined for at most 5 working days: until then its failures only block if three runs in a row fail, and $p's PRs are one risk tier up. Fix or remove the flaky test, then close this issue. Found on $FACTORY_SHA." >/dev/null
+              echo "Quarantined $p:test"
+            fi
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && hashFiles('bundle.json') != ''
         with:

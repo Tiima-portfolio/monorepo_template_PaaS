@@ -19,6 +19,7 @@ import { checkTitle, checkHistory, checkProvenance } from './checks.mjs';
 import { loadPolicy } from './lib/policy.mjs';
 import { miseToml } from './lib/mise.mjs';
 import { route } from './owners.mjs';
+import { activeQuarantine } from './flaky.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -106,7 +107,10 @@ let routing = { approvals: [], raise: [], owningTeams: [] };
 if (isPR) {
   provenance = checkProvenance({ author: pr.user?.login, commits, files, boundary: boundary.boundary, tier: risk.tier });
   routing = route({ services: touched, files, author: pr.user?.login, tier: risk.tier, teams: loadPolicy('teams') });
-  const raise = [...provenance.raise, ...routing.raise];
+  const quarantineFile = env.FACTORY_QUARANTINE_FILE;
+  const quarantined = quarantineFile && fs.existsSync(quarantineFile) ? activeQuarantine(JSON.parse(fs.readFileSync(quarantineFile, 'utf8'))) : new Set();
+  const inQuarantine = aff.names.filter((n) => quarantined.has(n));
+  const raise = [...provenance.raise, ...routing.raise, ...(inQuarantine.length ? ['quarantined_tests'] : [])];
   if (raise.length) {
     risk = classify({ files, affectedProjects: aff.names.length, criticalities: aff.criticalities, override: boundary.override, majorBump: title.bump === 'major', raise });
   }
