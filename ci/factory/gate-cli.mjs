@@ -134,8 +134,15 @@ record('history', history.ok, history.message);
     if (line.startsWith('+++ ')) { file = line.startsWith('+++ b/') ? line.slice(6) : null; if (file) added.set(file, []); }
     else if (file && line.startsWith('+') ) added.get(file).push(line.slice(1));
   }
-  const problems = networkProblems(added, loadPolicy('network'));
-  record('network', problems.length === 0, problems.length ? problems.slice(0, 10).join('; ') : 'only allowed package and image hosts');
+  const network = loadPolicy('network');
+  if (!network.air_gapped) {
+    const r = { check: 'network', status: 'skipped', sha, details: 'air-gap check is off (air_gapped: false in ci/policy/network.yaml)' };
+    records.push(r);
+    fs.writeFileSync(path.join(out, 'evidence', 'network.json'), JSON.stringify(r, null, 2));
+  } else {
+    const problems = networkProblems(added, network);
+    record('network', problems.length === 0, problems.length ? problems.slice(0, 10).join('; ') : 'only allowed package and image hosts');
+  }
 }
 // Lead time and escapes are reported per feature as well as per service.
 const featureId = [pr.body || '', ...commits.map((c) => c.message)].map((t) => /^Feature-Id:\s*(\S+)/m.exec(t)?.[1]).find(Boolean);

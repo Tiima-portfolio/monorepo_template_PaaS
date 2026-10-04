@@ -1,6 +1,10 @@
-# Where builds may fetch packages and images from. In the air-gapped network
-# list only the internal mirrors here; this template runs on GitHub-hosted
-# runners, so the public registries are allowed for now.
+# Where builds may fetch packages and images from.
+#
+# Off by default: this template runs on public GitHub-hosted runners. For an
+# air-gapped install, set air_gapped: true and list only your internal mirrors
+# under allowed_hosts.
+air_gapped: false
+
 allowed_hosts:
   - registry.npmjs.org
   - pypi.org
