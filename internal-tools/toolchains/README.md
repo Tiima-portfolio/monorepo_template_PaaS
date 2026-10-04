@@ -34,3 +34,4 @@ toolchain's `template/`, a `service.yaml` and a `guardrails.yaml` with defaults.
 | Toolchain | Lint | Test | Build | Package |
 | --- | --- | --- | --- | --- |
 | typescript | `tsc --noEmit` | `node --test` | `tsc` | `npm pack` |
+| go | `gofmt -l`, `go vet` | `go test` | static binary | `.tar.gz` |
