@@ -2,6 +2,7 @@
 setup:
   mise:
     go: "1.25"
+    "github:go-gremlins/gremlins": "0.6.0"
 targets:
   lint:
     command: test -z "$(gofmt -l .)" && go vet ./...
@@ -21,3 +22,9 @@ targets:
     command: tar -czf "dist/{name}-${FACTORY_VERSION:-0.0.0}.tar.gz" -C dist {name}
     dependsOn: [build]
     outputs: ["{projectRoot}/dist/{name}-*.tar.gz"]
+  # Mutation testing: the factory reads mutation/report.json (gremlins format:
+  # files[].mutations[] with status KILLED or LIVED) for its mutation score.
+  mutation:
+    command: mkdir -p mutation && gremlins unleash --output mutation/report.json
+    inputs: ["{projectRoot}/**/*.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
+    outputs: ["{projectRoot}/mutation"]
