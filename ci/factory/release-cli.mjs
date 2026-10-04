@@ -74,6 +74,8 @@ function publish(r) {
     return;
   }
   const root = projects[r.service];
+  // Packaging stamps versions into tracked files; start each release clean.
+  git('reset', '-q', '--hard');
   git('checkout', '-q', r.sha);
   sh('npx', ['nx', 'run', `${r.service}:package`, '--skip-nx-cache'], { stdio: 'inherit', env: { ...env, FACTORY_VERSION: r.version } });
   const dist = path.join(root, 'dist');
@@ -110,5 +112,6 @@ try {
     }
   }
 } finally {
+  git('reset', '-q', '--hard');
   git('checkout', '-q', start);
 }
