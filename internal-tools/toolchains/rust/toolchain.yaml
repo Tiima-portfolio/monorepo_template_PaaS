@@ -2,13 +2,16 @@
 # .cargo/config.toml points at the internal crate mirror.
 setup:
   mise:
-    rust: { version: "1.99.0", components: "rustfmt,clippy" }
+    rust: { version: "1.99.0", components: "rustfmt,clippy,llvm-tools" }
+    "github:taiki-e/cargo-llvm-cov": "0.9.1"
 targets:
   lint:
     command: cargo fmt --check && cargo clippy --all-targets -- -D warnings
     inputs: ["{projectRoot}/src/**/*", "{projectRoot}/tests/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
   test:
-    command: cargo test
+    # Also writes coverage/lcov.info for the factory's diff coverage.
+    command: mkdir -p coverage && cargo llvm-cov --lcov --output-path coverage/lcov.info
+    outputs: ["{projectRoot}/coverage"]
     inputs: ["{projectRoot}/src/**/*", "{projectRoot}/tests/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
   build:
     command: cargo build --release
