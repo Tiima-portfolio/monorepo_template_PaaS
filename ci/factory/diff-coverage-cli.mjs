@@ -30,6 +30,9 @@ for (const name of gate.affected || []) {
     coverage = parseGoCover(fs.readFileSync(path.join(root, 'coverage/cover.out'), 'utf8'), module);
   }
   if (!coverage) continue;
+  // Some tools (cargo llvm-cov) write absolute paths; make them project-relative.
+  const abs = path.resolve(root);
+  coverage = new Map([...coverage].map(([f, lines]) => [path.isAbsolute(f) ? path.relative(abs, f) : f, lines]));
   const total = totalCoverage(coverage);
   if (total !== null) totals[name] = total;
   const diff = run('git', ['diff', '-U0', `${env.FACTORY_BASE}...${env.FACTORY_HEAD}`, '--', root]);
