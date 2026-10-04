@@ -1,0 +1,34 @@
+# Evidence each risk tier requires before admission allows a merge.
+# `mode: enforce` blocks when missing or failed; `mode: shadow` is reported but
+# never blocks. New checks start in shadow mode and move to enforce once their
+# shadow results show no false blocks.
+
+evidence:
+  boundary:             { mode: enforce, about: "PR stays inside one boundary" }
+  title:                { mode: enforce, about: "Conventional PR title" }
+  format-lint:          { mode: enforce, about: "Lint of affected projects" }
+  build:                { mode: enforce, about: "Build of affected projects" }
+  unit-tests:           { mode: enforce, about: "Unit tests of affected projects" }
+  provenance:           { mode: enforce, about: "Agent provenance and trust level" }
+  history:              { mode: enforce, about: "No merge commits in the PR" }
+  dependency-rules:     { mode: shadow,  about: "Dependency directions and no cycles" }
+  diff-coverage:        { mode: shadow,  about: "Changed lines covered by unit tests" }
+  contract-tests:       { mode: shadow,  about: "Contract and consumer contract tests" }
+  integration-selected: { mode: shadow,  about: "Selected integration tests" }
+  mutation-score:       { mode: shadow,  about: "Mutation score on the diff" }
+  integration-broad:    { mode: shadow,  about: "Broad integration tests" }
+  # Shadow until real owner teams exist: in a template every PR has one author.
+  owner-approval:       { mode: shadow,  about: "Approval by the owning team" }
+
+tiers:
+  R0: [boundary, title, history, format-lint]
+  R1: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage]
+  R2: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage,
+       contract-tests, integration-selected, mutation-score]
+  R3: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage,
+       contract-tests, integration-selected, mutation-score, integration-broad, owner-approval]
+
+# Added on top of the tier when the condition holds.
+extra:
+  agent: [provenance]
+  tests_removed: [owner-approval]
