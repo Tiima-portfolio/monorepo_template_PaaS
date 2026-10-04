@@ -22,14 +22,62 @@ export function workingDaysBetween(from, to) {
 }
 
 // issues: [{ title, created_at }] open issues labelled "quarantine", titled
-// "quarantine: <project>:test". Returns the projects still in quarantine.
+// "quarantine: <project>:<test>" (or "<project>:test" for a whole project).
+// Returns Map(project -> Set(tests)) still in quarantine; it also answers
+// .has(project) like a set of projects.
 export function activeQuarantine(issues, now = new Date()) {
-  const active = new Set();
+  const active = new Map();
   for (const i of issues) {
-    const m = /^quarantine: (.+):test$/.exec(i.title);
-    if (m && workingDaysBetween(new Date(i.created_at), now) < QUARANTINE_WORKING_DAYS) active.add(m[1]);
+    const m = /^quarantine: ([^:]+):(.+)$/.exec(i.title);
+    if (!m || workingDaysBetween(new Date(i.created_at), now) >= QUARANTINE_WORKING_DAYS) continue;
+    if (!active.has(m[1])) active.set(m[1], new Set());
+    active.get(m[1]).add(m[2]);
   }
   return active;
+}
+
+// Per-test results from a project's test-results/ folder:
+// Map(test id -> 'pass' | 'fail'). JUnit XML or Go's JSON test events.
+export function parseJunit(xml) {
+  const results = new Map();
+  for (const m of xml.matchAll(/<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g)) {
+    const attr = (k) => new RegExp(`${k}="([^"]*)"`).exec(m[1])?.[1];
+    const id = [attr('classname'), attr('name')].filter(Boolean).join('.');
+    const failed = /<(failure|error)\b/.test(m[3] || '');
+    if (/<skipped\b/.test(m[3] || '')) continue;
+    results.set(id, failed || results.get(id) === 'fail' ? 'fail' : 'pass');
+  }
+  return results;
+}
+
+export function parseGoJson(text) {
+  const results = new Map();
+  for (const line of text.split('\n')) {
+    try {
+      const e = JSON.parse(line);
+      if (e.Test && (e.Action === 'pass' || e.Action === 'fail')) results.set(`${e.Package}.${e.Test}`, e.Action);
+    } catch {}
+  }
+  return results;
+}
+
+// runs: [Map(test -> status)] in order. Returns per-test verdicts for the
+// tests that failed in the first run.
+export function classifyTests(runs, quarantined = new Set()) {
+  const verdicts = new Map();
+  for (const [test, status] of runs[0]) {
+    if (status !== 'fail') continue;
+    const later = runs.slice(1).map((r) => r.get(test)).filter(Boolean);
+    if (quarantined.has(test) || quarantined.has('test')) {
+      verdicts.set(test, later.slice(0, QUARANTINE_ATTEMPTS - 1).includes('pass') ? 'pass-quarantined' : 'fail');
+    } else if (later[0] !== 'pass') {
+      verdicts.set(test, 'fail');
+    } else {
+      const confirm = later.slice(1);
+      verdicts.set(test, confirm.includes('pass') && confirm.includes('fail') ? 'flaky' : 'pass-on-retry');
+    }
+  }
+  return verdicts;
 }
 
 // runs: booleans (true = passed), in order. Classifies one project's results.

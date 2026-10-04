@@ -274,13 +274,13 @@ jobs:
         run: |
           f=factory-in/factory-verify/flaky.json
           [ -f "$f" ] || exit 0
-          for p in $(jq -r '.[]' "$f"); do
-            title="quarantine: $p:test"
+          jq -r '.[]' "$f" | while IFS= read -r t; do
+            title="quarantine: $t"
             open=$(gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" --jq "[.[] | select(.title == \"$title\")] | length")
             if [ "$open" = "0" ]; then
               gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f labels[]=quarantine \
-                -f body="The $p test target failed and then passed on the same commit, and 20 reruns both passed and failed, so it is flaky. It is quarantined for at most 5 working days: until then its failures only block if three runs in a row fail, and $p's PRs are one risk tier up. Fix or remove the flaky test, then close this issue. Found on $FACTORY_SHA." >/dev/null
-              echo "Quarantined $p:test"
+                -f body="The test $t failed and then passed on the same commit, and 20 reruns both passed and failed, so it is flaky. It is quarantined for at most 5 working days: until then its failures only block if it fails three runs in a row, and its project's PRs are one risk tier up. Fix or remove the flaky test, then close this issue. Found on $FACTORY_SHA." >/dev/null
+              echo "Quarantined $t"
             fi
           done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
