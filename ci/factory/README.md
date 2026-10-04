@@ -14,6 +14,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `rulesets.mjs` | Checks or applies the repository rulesets in `.github/rulesets/` |
 | `collect.mjs` | Links a PR's evidence bundle to the commit that landed on main |
 | `owners.mjs` | Routes approvals per touched service from `service.yaml`, `guardrails.yaml` and `teams.yaml` |
+| `flaky.mjs`, `test-run.mjs` | Test retries, flake confirmation and time-limited quarantine |
 
 Run the tests:
 
