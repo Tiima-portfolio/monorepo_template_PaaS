@@ -1,0 +1,38 @@
+# Evidence collector: links each commit on main to the evidence of the PR it
+# came from, and flags commits that reached main without one (break-glass).
+name: evidence
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  collect:
+    name: factory/evidence
+    runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_EVIDENCE_KEY: ${{ secrets.FACTORY_EVIDENCE_KEY }}
+          FACTORY_EVIDENCE_S3_URI: ${{ vars.FACTORY_EVIDENCE_S3_URI }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.FACTORY_EVIDENCE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.FACTORY_EVIDENCE_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL: ${{ vars.FACTORY_EVIDENCE_S3_ENDPOINT }}
+        run: node ci/factory/collect-cli.mjs
+      # Kept on GitHub as well, or only here when no bucket is configured.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always() && hashFiles('main-bundle.json') != ''
+        with:
+          name: factory-evidence-main
+          path: main-bundle.json
+          retention-days: 90
