@@ -1,6 +1,8 @@
 <!-- Title: use a conventional prefix. fix: patch, feat: minor, feat!: major,
      docs:/test:/chore:/ci:/build: no release. -->
 
+Feature-Id: <!-- the feature or ticket this belongs to, e.g. CHK-142 -->
+
 ## What changes
 
 ## Why

@@ -125,6 +125,9 @@ const requester = commits.map((c) => /^Requested-By:\s*(\S+)/m.exec(c.message)?.
 record('boundary', boundary.ok, boundary.message);
 record('title', title.ok, title.message);
 record('history', history.ok, history.message);
+// Lead time and escapes are reported per feature as well as per service.
+const featureId = [pr.body || '', ...commits.map((c) => c.message)].map((t) => /^Feature-Id:\s*(\S+)/m.exec(t)?.[1]).find(Boolean);
+record('feature-id', !isPR || !!featureId, !isPR ? 'checked on each PR' : featureId ? `Feature-Id: ${featureId}` : 'add a Feature-Id: line to the PR description');
 record('provenance', provenance.ok, provenance.message);
 {
   const problems = files.filter((f) => fs.existsSync(f)).flatMap((f) => lintTestFile(f, fs.readFileSync(f, 'utf8')));
