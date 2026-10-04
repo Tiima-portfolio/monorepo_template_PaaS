@@ -1,0 +1,15 @@
+# Team membership the factory uses for approval routing, until teams come from
+# the GitHub organization. Replace the placeholders with your teams.
+teams:
+  factory-owners: [Tiima]
+  team-platform: [Tiima]
+  team-catalog: [Tiima]
+  team-orders: [Tiima]
+  team-pricing: [Tiima]
+  team-inventory: [Tiima]
+
+# Who may approve creating a new service or tool, per boundary.
+catalog_approvers:
+  product: [factory-owners]
+  internal-services: [factory-owners]
+  internal-tools: [factory-owners]

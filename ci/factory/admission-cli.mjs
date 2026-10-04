@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { decide } from './admission.mjs';
+import { approvalsMet } from './owners.mjs';
+import { loadPolicy } from './lib/policy.mjs';
 
 const dir = process.env.FACTORY_IN || 'factory-in';
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
@@ -21,6 +23,18 @@ const records = all
   .map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
 
 const readJson = (f) => (f && fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : undefined);
+
+// owner-approval: the routed approvals against the PR's current approvals.
+const approvers = readJson(process.env.FACTORY_APPROVERS_FILE);
+if (approvers && gate.approvals) {
+  const met = approvalsMet(gate.approvals, approvers, { author: gate.author, requester: gate.requester, teams: loadPolicy('teams') });
+  records.push({
+    check: 'owner-approval',
+    status: met.ok ? 'pass' : 'fail',
+    sha: gate.sha,
+    details: met.ok ? `approved by ${approvers.join(', ') || 'nobody needed'}` : `waiting for ${met.missing.map((m) => `${m.service}: ${m.teams.join(' or ')}`).join('; ')}`,
+  });
+}
 const jobs = readJson(process.env.FACTORY_JOBS_FILE);
 const run = readJson(process.env.FACTORY_RUN_FILE);
 const result = decide({ ...gate, records, jobs, run });

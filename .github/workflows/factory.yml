@@ -180,8 +180,16 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
             --jq '[.jobs[] | {name, conclusion}]' > jobs.json
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq '{path, head_sha}' > run.json
+      - name: Current approvals
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" --paginate \
+            --jq '[group_by(.user.login)[] | last | select(.state == "APPROVED") | .user.login]' | jq -s 'add // []' > approvers.json
       - name: Admission
-        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json node ci/factory/admission-cli.mjs
+        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json node ci/factory/admission-cli.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && hashFiles('bundle.json') != ''
         with:

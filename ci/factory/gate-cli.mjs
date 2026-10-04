@@ -18,6 +18,7 @@ import { requiredEvidence } from './evidence.mjs';
 import { checkTitle, checkHistory, checkProvenance } from './checks.mjs';
 import { loadPolicy } from './lib/policy.mjs';
 import { miseToml } from './lib/mise.mjs';
+import { route } from './owners.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -54,10 +55,10 @@ function affected() {
     const nodes = JSON.parse(fs.readFileSync(graphFile, 'utf8')).graph.nodes;
     const tags = names.flatMap((n) => nodes[n]?.data?.tags || []);
     const pick = (prefix) => [...new Set(tags.filter((t) => t.startsWith(prefix)).map((t) => t.slice(prefix.length)))];
-    return { names, criticalities: pick('criticality:'), toolchains: pick('toolchain:') };
+    return { names, nodes, criticalities: pick('criticality:'), toolchains: pick('toolchain:') };
   } catch (e) {
     console.error(`Could not read the Nx graph: ${e.message}`);
-    return { names: [], criticalities: [], toolchains: [], error: true };
+    return { names: [], nodes: {}, criticalities: [], toolchains: [], error: true };
   }
 }
 
@@ -85,12 +86,32 @@ let risk = classify({
   override: boundary.override,
   majorBump: title.bump === 'major',
 });
+// Services this PR changes, read from the base branch (owners, guardrails) and
+// from the PR (a new owner), for approval routing.
+const show = (ref, file) => { try { return YAML.parse(git('show', `${ref}:${file}`)); } catch { return null; } };
+const touched = Object.values(aff.nodes || {})
+  .filter((n) => files.some((f) => f.startsWith(`${n.data.root}/`)) && fs.existsSync(path.join(n.data.root, 'service.yaml')))
+  .map((n) => {
+    const root = n.data.root;
+    const baseService = show(base, `${root}/service.yaml`);
+    return {
+      name: n.name,
+      root,
+      boundary: root.split('/')[0],
+      base: baseService ? { service: baseService, guardrails: show(base, `${root}/guardrails.yaml`) || {} } : null,
+      head: { service: YAML.parse(fs.readFileSync(path.join(root, 'service.yaml'), 'utf8')) },
+    };
+  });
+let routing = { approvals: [], raise: [], owningTeams: [] };
 if (isPR) {
   provenance = checkProvenance({ author: pr.user?.login, commits, files, boundary: boundary.boundary, tier: risk.tier });
-  if (provenance.raise.length) {
-    risk = classify({ files, affectedProjects: aff.names.length, criticalities: aff.criticalities, override: boundary.override, majorBump: title.bump === 'major', raise: provenance.raise });
+  routing = route({ services: touched, files, author: pr.user?.login, tier: risk.tier, teams: loadPolicy('teams') });
+  const raise = [...provenance.raise, ...routing.raise];
+  if (raise.length) {
+    risk = classify({ files, affectedProjects: aff.names.length, criticalities: aff.criticalities, override: boundary.override, majorBump: title.bump === 'major', raise });
   }
 }
+const requester = commits.map((c) => /^Requested-By:\s*(\S+)/m.exec(c.message)?.[1]).find(Boolean) || null;
 
 record('boundary', boundary.ok, boundary.message);
 record('title', title.ok, title.message);
@@ -120,6 +141,7 @@ const gate = {
   sha, tree: git('rev-parse', `${head}^{tree}`), base, head, event: eventName, tier: risk.tier, reasons: risk.reasons, boundary: boundary.boundary,
   override: !!boundary.override, needsHuman: provenance.needsHuman, affected: aff.names,
   toolchains: aff.toolchains, files: files.length, required,
+  author: pr.user?.login || null, requester, approvals: routing.approvals, owningTeams: routing.owningTeams,
 };
 fs.writeFileSync(path.join(out, 'gate.json'), JSON.stringify(gate, null, 2));
 
@@ -129,6 +151,7 @@ const summary = [
   `Tier **${risk.tier}** (${risk.reasons.join('; ') || 'default'}). ${files.length} changed file(s), ${aff.names.length} affected project(s).`,
   '',
   ...records.map((r) => `- ${r.status === 'pass' ? '✅' : '❌'} ${r.check}: ${r.details}`),
+  ...(routing.approvals.length ? ['', 'Approvals needed:', ...routing.approvals.map((a) => `- ${a.service}: ${a.teams.join(' or ')} (${a.reason})`)] : []),
 ].join('\n');
 if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, summary + '\n');
 console.log(summary);
