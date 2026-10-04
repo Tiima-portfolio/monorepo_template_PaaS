@@ -47,7 +47,9 @@ jobs:
           driver-opts: ${{ vars.FACTORY_BUILDKIT_IMAGE && format('image={0}', vars.FACTORY_BUILDKIT_IMAGE) || '' }}
       - name: Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          # A GitHub App token with contents and workflows write can release
+          # older commits after workflow files changed; GITHUB_TOKEN can't.
+          GH_TOKEN: ${{ secrets.FACTORY_RELEASE_TOKEN || github.token }}
         run: |
           git config user.name "factory-release"
           git config user.email "factory-release@users.noreply.github.com"

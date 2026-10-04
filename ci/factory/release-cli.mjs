@@ -103,9 +103,25 @@ function publish(r) {
   console.log(`Released ${r.tag}`);
 }
 
+// GitHub refuses a release on an older commit when the workflow files have
+// changed since, unless the token may write workflows (GITHUB_TOKEN can't).
+// Without FACTORY_RELEASE_TOKEN such a release is skipped with a warning
+// instead of blocking every later release.
+const refused = [];
+function tryPublish(r) {
+  try {
+    publish(r);
+  } catch (e) {
+    const text = `${e.message}\n${e.stderr || ''}`;
+    if (!/Resource not accessible by integration|refusing to allow/.test(text)) throw e;
+    refused.push(r.tag);
+    console.log(`::warning::GitHub refused to create ${r.tag} with this token. Set the FACTORY_RELEASE_TOKEN secret (a GitHub App token with contents and workflows write) and re-run to release it.`);
+  }
+}
+
 try {
   for (const c of commits) {
-    for (const r of plan.filter((x) => x.sha === c.sha)) publish(r);
+    for (const r of plan.filter((x) => x.sha === c.sha)) tryPublish(r);
     git('tag', '-f', CURSOR, c.sha);
     git('push', '-f', 'origin', `refs/tags/${CURSOR}`);
   }
@@ -118,6 +134,7 @@ try {
       console.log(`::warning::Draft release ${r.tagName} has no tag yet; it will be published when its commit is released.`);
     }
   }
+  if (refused.length) console.log(`Skipped, needs FACTORY_RELEASE_TOKEN: ${refused.join(', ')}`);
 } finally {
   git('reset', '-q', '--hard');
   git('checkout', '-q', start);
