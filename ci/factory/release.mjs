@@ -32,15 +32,19 @@ export function nextVersion(current, bump) {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-// commits: [{ sha, title, affected: [service] }] in history order (oldest first).
+// commits: [{ sha, title, affected: [service], changed: [service] }] in history
+// order (oldest first). A service the commit changed gets the bump from the
+// title; one affected only through a dependency is rebuilt as a patch.
 // Returns the releases to make, in the same order.
 export function planReleases(commits, tags) {
   const known = [...tags];
   const releases = [];
   for (const c of commits) {
     const title = checkTitle(c.title);
-    const bump = title.ok ? title.bump : 'none';
+    const titleBump = title.ok ? title.bump : 'none';
+    const changed = new Set(c.changed || c.affected);
     for (const service of [...c.affected].sort()) {
+      const bump = changed.has(service) ? titleBump : titleBump === 'none' ? 'none' : 'patch';
       const version = nextVersion(latestVersion(service, known), bump);
       if (!version) continue;
       const tag = `${service}/v${version}`;

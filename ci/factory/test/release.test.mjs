@@ -27,3 +27,14 @@ test('releases follow history order and see earlier releases', () => {
   assert.deepEqual(r.map((x) => x.tag), ['catalog/v0.1.0', 'orders/v1.1.0', 'orders/v1.1.1']);
   assert.deepEqual(r.map((x) => x.sha), ['a', 'a', 'c']);
 });
+
+test('services affected only through a dependency get a patch', () => {
+  const commits = [{ sha: 'a', title: 'feat(catalog): listing', affected: ['catalog', 'orders'], changed: ['catalog'] }];
+  const r = planReleases(commits, ['catalog/v0.1.0', 'orders/v0.1.0']);
+  assert.deepEqual(r.map((x) => `${x.tag} ${x.bump}`), ['catalog/v0.2.0 minor', 'orders/v0.1.1 patch']);
+});
+
+test('a no-release title rebuilds nothing', () => {
+  const commits = [{ sha: 'a', title: 'docs: readme', affected: ['catalog', 'orders'], changed: ['catalog'] }];
+  assert.deepEqual(planReleases(commits, []), []);
+});

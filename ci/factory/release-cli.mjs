@@ -51,7 +51,12 @@ const commits = shas.map((sha) => {
     : Object.keys(projects);
   // The graph is today's; keep only projects that already existed at this commit.
   const existed = (p) => tryRun(() => sh('git', ['cat-file', '-e', `${sha}:${projects[p]}/service.yaml`], { stdio: ['ignore', 'pipe', 'ignore'] })) !== null;
-  return { sha, title: git('log', '-1', '--format=%s', sha), affected: affected.filter((p) => projects[p] && existed(p)) };
+  const files = parent ? lines(git('diff', '--name-only', parent, sha)) : [];
+  // A rerun after a partial failure skips services already released from this commit.
+  const done = new Set(lines(git('tag', '--points-at', sha, '*/v*')).map((t) => t.split('/v')[0]));
+  const kept = affected.filter((p) => projects[p] && existed(p) && !done.has(p));
+  const changed = parent ? kept.filter((p) => files.some((f) => f.startsWith(`${projects[p]}/`))) : kept;
+  return { sha, title: git('log', '-1', '--format=%s', sha), affected: kept, changed };
 });
 const tags = lines(git('tag', '-l', '*/v*'));
 const plan = planReleases(commits, tags);
@@ -82,7 +87,9 @@ function publish(r) {
   const files = fs.existsSync(dist) ? fs.readdirSync(dist).filter((f) => ARTIFACT.test(f)).map((f) => path.join(dist, f)) : [];
   // Artifact first: the image in the registry and the files on a draft release.
   for (const f of files.filter((x) => x.endsWith('-image.tar'))) {
-    sh('skopeo', ['copy', '--dest-creds', `${env.GITHUB_ACTOR}:${env.GH_TOKEN}`, `oci-archive:${f}`, `docker://${registry}/${r.service}:${r.version}`], { stdio: 'inherit' });
+    // An OCI layout has an oci-layout file; otherwise it's a docker save archive.
+    const format = sh('tar', ['-tf', f]).split('\n').includes('oci-layout') ? 'oci-archive' : 'docker-archive';
+    sh('skopeo', ['copy', '--dest-creds', `${env.GITHUB_ACTOR}:${env.GH_TOKEN}`, `${format}:${f}`, `docker://${registry}/${r.service}:${r.version}`], { stdio: 'inherit' });
   }
   const assets = files.filter((x) => !x.endsWith('-image.tar'));
   if (!existing) {
