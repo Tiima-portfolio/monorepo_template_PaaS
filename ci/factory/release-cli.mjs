@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Release controller, run by .github/workflows/release.yml on every push to
-// main. It walks main in history order from a cursor tag, so a run that is
+// main. It walks main in history order from a cursor, so a run that is
 // cancelled or starts late loses nothing: the next run picks up from the
-// cursor. For each release it publishes the artifact first (a draft GitHub
+// cursor. The cursor lives in the body of a draft release, not in a git ref:
+// GitHub won't let GITHUB_TOKEN point a ref at an older commit once workflow
+// files have changed since. For each release it publishes the artifact first (a draft GitHub
 // release with its files, and the image in the registry) and only then
 // publishes the release, which creates the <service>/v<version> tag.
 //
@@ -13,7 +15,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { planReleases } from './release.mjs';
 
-const CURSOR = 'factory/release-cursor';
+const CURSOR = 'factory-release-cursor';
+const LEGACY_CURSOR_TAG = 'factory/release-cursor';
 const ARTIFACT = /\.(tgz|tar\.gz|whl|tar)$/;
 const env = process.env;
 const dry = env.FACTORY_DRY_RUN === 'true';
@@ -48,7 +51,24 @@ function releasableProjects() {
 }
 
 const start = git('rev-parse', 'HEAD');
-const cursor = tryRun(() => git('rev-parse', '-q', '--verify', `refs/tags/${CURSOR}^{commit}`));
+// Cursor state: { sha, pending: [release] } in the draft release's body.
+function readCursor() {
+  const rel = dry ? null : tryRun(() => JSON.parse(sh('gh', ['api', `repos/${repo}/releases`, '--paginate', '--jq', `[.[] | select(.tag_name == "${CURSOR}")] | first`]) || 'null'));
+  if (rel?.body) return { id: rel.id, ...JSON.parse(rel.body) };
+  const legacy = tryRun(() => git('rev-parse', '-q', '--verify', `refs/tags/${LEGACY_CURSOR_TAG}^{commit}`));
+  return { id: rel?.id || null, sha: legacy || null, pending: [] };
+}
+function writeCursor(state) {
+  const body = JSON.stringify({ sha: state.sha, pending: state.pending });
+  if (state.id) {
+    sh('gh', ['api', '-X', 'PATCH', `repos/${repo}/releases/${state.id}`, '-f', `body=${body}`], { stdio: 'ignore' });
+  } else {
+    const created = JSON.parse(sh('gh', ['api', `repos/${repo}/releases`, '-f', `tag_name=${CURSOR}`, '-f', `name=${CURSOR}`, '-F', 'draft=true', '-f', `body=${body}`]));
+    state.id = created.id;
+  }
+}
+const cursorState = readCursor();
+const cursor = cursorState.sha;
 const shas = cursor ? lines(git('rev-list', '--reverse', '--first-parent', `${cursor}..HEAD`)) : [start];
 console.log(cursor ? `Cursor at ${cursor.slice(0, 12)}; ${shas.length} new commit(s) on main.` : 'No cursor yet; starting from HEAD.');
 
@@ -123,16 +143,27 @@ function tryPublish(r) {
   } catch (e) {
     const text = `${e.message}\n${e.stderr || ''}`;
     if (!/Resource not accessible by integration|refusing to allow/.test(text)) throw e;
-    refused.push(r.tag);
+    refused.push(r);
     console.log(`::warning::GitHub refused to create ${r.tag} with this token. Set the FACTORY_RELEASE_TOKEN secret (a GitHub App token with contents and workflows write) and re-run to release it.`);
   }
 }
 
 try {
+  // Releases refused earlier are retried first, in case a token is now set.
+  const retry = cursorState.pending || [];
+  cursorState.pending = [];
+  for (const r of retry) {
+    if (!state(r.tag) || state(r.tag).isDraft) tryPublish(r);
+  }
   for (const c of commits) {
     for (const r of plan.filter((x) => x.sha === c.sha)) tryPublish(r);
-    git('tag', '-f', CURSOR, c.sha);
-    git('push', '-f', 'origin', `refs/tags/${CURSOR}`);
+    cursorState.sha = c.sha;
+    cursorState.pending = refused;
+    writeCursor(cursorState);
+  }
+  if (!commits.length && retry.length) {
+    cursorState.pending = refused;
+    writeCursor(cursorState);
   }
   // Reconcile: a published tag whose release is still a draft gets published.
   for (const r of releases.filter((x) => x.isDraft && !plan.some((p) => p.tag === x.tagName))) {
@@ -143,7 +174,7 @@ try {
       console.log(`::warning::Draft release ${r.tagName} has no tag yet; it will be published when its commit is released.`);
     }
   }
-  if (refused.length) console.log(`Skipped, needs FACTORY_RELEASE_TOKEN: ${refused.join(', ')}`);
+  if (refused.length) console.log(`Waiting for FACTORY_RELEASE_TOKEN: ${refused.map((r) => r.tag).join(', ')}`);
 } finally {
   git('reset', '-q', '--hard');
   git('checkout', '-q', start);
