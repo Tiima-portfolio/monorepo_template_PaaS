@@ -1,0 +1,6 @@
+name: edge-proxy
+owner: team-platform
+toolchains: [container]
+criticality: normal
+consumes: []
+contract: []

@@ -1,0 +1,8 @@
+# Guardrails set by team-inventory. They can only be stricter than ci/policy/.
+protected_paths: []
+required_checks: []
+thresholds: {}
+agents:
+  max_autonomous_tier: R1
+  forbidden_paths: []
+contributors: []

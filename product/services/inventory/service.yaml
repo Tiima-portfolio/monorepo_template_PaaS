@@ -1,0 +1,6 @@
+name: inventory
+owner: team-inventory
+toolchains: [rust]
+criticality: normal
+consumes: []
+contract: []

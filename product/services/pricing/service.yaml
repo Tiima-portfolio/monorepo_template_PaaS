@@ -1,0 +1,6 @@
+name: pricing
+owner: team-pricing
+toolchains: [python]
+criticality: normal
+consumes: []
+contract: []
