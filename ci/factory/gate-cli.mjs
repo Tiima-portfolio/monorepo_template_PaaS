@@ -197,7 +197,7 @@ if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, summary 
 console.log(summary);
 
 if (env.GITHUB_OUTPUT) {
-  fs.appendFileSync(env.GITHUB_OUTPUT, `tier=${risk.tier}\naffected=${aff.names.length}\nhas_tools=${Object.keys(tools).length > 0}\nescape_fix=${escapeFix}\nowner_checks=${checks.map((c) => `${c.project}:${c.target}`).join(' ')}\n`);
+  fs.appendFileSync(env.GITHUB_OUTPUT, `tier=${risk.tier}\naffected=${aff.names.length}\nhas_tools=${Object.keys(tools).length > 0}\nescape_fix=${escapeFix}\nhard_minutes=${loadPolicy('budgets').feedback[risk.tier].hard}\nowner_checks=${checks.map((c) => `${c.project}:${c.target}`).join(' ')}\n`);
 }
 // The gate never fails the job itself: admission decides, so the PR shows one
 // clear verdict with every reason in it.

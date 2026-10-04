@@ -1,0 +1,15 @@
+# Time budgets. The p90 budget is the target; the hard limit fails the job.
+# Minutes.
+stages:
+  gate:               { budget: 1,  hard: 3 }
+  build-project:      { budget: 5,  hard: 10 }
+  unit-tests-project: { budget: 3,  hard: 5 }
+  contract-project:   { budget: 5,  hard: 10 }
+  integration:        { budget: 15, hard: 30 }
+  merge-queue-batch:  { budget: 15, hard: 30 }
+# Whole PR feedback, from the run starting to the admission decision.
+feedback:
+  R0: { budget: 5,  hard: 10 }
+  R1: { budget: 10, hard: 20 }
+  R2: { budget: 20, hard: 40 }
+  R3: { budget: 30, hard: 60 }

@@ -40,6 +40,7 @@ jobs:
       affected: ${{ steps.gate.outputs.affected }}
       has_tools: ${{ steps.gate.outputs.has_tools }}
       escape_fix: ${{ steps.gate.outputs.escape_fix }}
+      hard_minutes: ${{ steps.gate.outputs.hard_minutes }}
       owner_checks: ${{ steps.gate.outputs.owner_checks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,6 +87,8 @@ jobs:
             --jq '[.[] | {title, created_at}]' > quarantine.json
       - name: Gate
         id: gate
+        # Hard limit for the gate itself, from ci/policy/budgets.yaml.
+        timeout-minutes: 3
         run: FACTORY_QUARANTINE_FILE=quarantine.json FACTORY_POLICY_DIR="$FACTORY_CODE/policy" node "$FACTORY_CODE/factory/gate-cli.mjs"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -97,6 +100,8 @@ jobs:
     name: factory/verify
     needs: gate
     if: needs.gate.outputs.affected != '0'
+    # The tier's hard limit for PR feedback, from ci/policy/budgets.yaml.
+    timeout-minutes: ${{ fromJSON(needs.gate.outputs.hard_minutes || '60') }}
     permissions:
       contents: read
       issues: read
@@ -248,7 +253,7 @@ jobs:
         run: |
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
             --jq '[.jobs[] | {name, conclusion}]' > jobs.json
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq '{path, head_sha}' > run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq '{path, head_sha, run_started_at}' > run.json
       - name: Current approvals
         if: github.event_name == 'pull_request'
         env:
