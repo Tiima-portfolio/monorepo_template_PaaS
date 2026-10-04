@@ -2,12 +2,13 @@
 import { loadPolicy } from './lib/policy.mjs';
 
 // Returns [{ name, mode, about }] for a tier and the PR's conditions.
-export function requiredEvidence(tier, { agent = false, testsRemoved = false, escapeFix = false } = {}, policy = loadPolicy('evidence')) {
+export function requiredEvidence(tier, { agent = false, testsRemoved = false, escapeFix = false, ownerChecks = false } = {}, policy = loadPolicy('evidence')) {
   if (!policy.tiers[tier]) throw new Error(`unknown tier: ${tier}`);
   const names = new Set(policy.tiers[tier]);
   if (agent) policy.extra.agent.forEach((n) => names.add(n));
   if (testsRemoved) policy.extra.tests_removed.forEach((n) => names.add(n));
   if (escapeFix) policy.extra.escape_fix.forEach((n) => names.add(n));
+  if (ownerChecks) policy.extra.owner_checks.forEach((n) => names.add(n));
   return [...names].map((name) => {
     const def = policy.evidence[name];
     if (!def) throw new Error(`evidence "${name}" is required but not defined`);

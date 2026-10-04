@@ -80,3 +80,7 @@ test('escape fixes need a regression test', () => {
   assert.ok(requiredEvidence('R1', { escapeFix: true }).some((e) => e.name === 'regression-test' && e.mode === 'enforce'));
   assert.ok(!requiredEvidence('R1').some((e) => e.name === 'regression-test'));
 });
+
+test('owner checks are required when triggered', () => {
+  assert.ok(requiredEvidence('R1', { ownerChecks: true }).some((e) => e.name === 'owner-checks' && e.mode === 'enforce'));
+});

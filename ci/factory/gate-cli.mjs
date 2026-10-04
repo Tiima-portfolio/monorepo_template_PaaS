@@ -23,6 +23,7 @@ import { activeQuarantine } from './flaky.mjs';
 import { checkDependencies } from './deps.mjs';
 import { lintTestFile } from './test-quality.mjs';
 import { contractProblems } from './contracts.mjs';
+import { agentGuardrails, ownerChecks } from './guardrails.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -157,8 +158,16 @@ if (aff.names.length === 0 && !aff.error) {
   }
 }
 
+// Owners' required checks, and their rules for agents.
+const checks = ownerChecks(touched, files);
+if (isPR && provenance.isAgent) {
+  const g = agentGuardrails(touched, files, risk.tier);
+  if (!g.ok) provenance = { ...provenance, ok: false, message: `${provenance.message}; ${g.problems.join('; ')}` };
+  if (g.needsHuman) provenance = { ...provenance, needsHuman: true };
+  record('provenance', provenance.ok, provenance.message);
+}
 const escapeFix = isPR && (pr.labels || []).some((l) => l.name === 'escape-fix');
-const required = requiredEvidence(risk.tier, { agent: provenance.isAgent, testsRemoved, escapeFix });
+const required = requiredEvidence(risk.tier, { agent: provenance.isAgent, testsRemoved, escapeFix, ownerChecks: checks.length > 0 });
 
 // mise config for the toolchains the affected projects use.
 const tools = {};
@@ -172,7 +181,7 @@ const gate = {
   sha, tree: git('rev-parse', `${head}^{tree}`), base, head, event: eventName, tier: risk.tier, reasons: risk.reasons, boundary: boundary.boundary,
   override: !!boundary.override, needsHuman: provenance.needsHuman, affected: aff.names,
   toolchains: aff.toolchains, files: files.length, required,
-  author: pr.user?.login || null, requester, approvals: routing.approvals, owningTeams: routing.owningTeams,
+  author: pr.user?.login || null, requester, ownerChecks: checks, approvals: routing.approvals, owningTeams: routing.owningTeams,
 };
 fs.writeFileSync(path.join(out, 'gate.json'), JSON.stringify(gate, null, 2));
 
@@ -188,7 +197,7 @@ if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, summary 
 console.log(summary);
 
 if (env.GITHUB_OUTPUT) {
-  fs.appendFileSync(env.GITHUB_OUTPUT, `tier=${risk.tier}\naffected=${aff.names.length}\nhas_tools=${Object.keys(tools).length > 0}\nescape_fix=${escapeFix}\n`);
+  fs.appendFileSync(env.GITHUB_OUTPUT, `tier=${risk.tier}\naffected=${aff.names.length}\nhas_tools=${Object.keys(tools).length > 0}\nescape_fix=${escapeFix}\nowner_checks=${checks.map((c) => `${c.project}:${c.target}`).join(' ')}\n`);
 }
 // The gate never fails the job itself: admission decides, so the PR shows one
 // clear verdict with every reason in it.
