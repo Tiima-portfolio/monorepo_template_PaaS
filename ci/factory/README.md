@@ -12,6 +12,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `admission.mjs` | Allows or blocks the merge: required evidence present and passing for the exact commit |
 | `release.mjs` | Next version per service from git tags and the squash commit title, in history order |
 | `rulesets.mjs` | Checks or applies the repository rulesets in `.github/rulesets/` |
+| `collect.mjs` | Links a PR's evidence bundle to the commit that landed on main |
 
 Run the tests:
 
