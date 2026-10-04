@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { linkToMain, sign } from './collect.mjs';
+import { indexSql, linkToMain, sign } from './collect.mjs';
 
 const env = process.env;
 const repo = env.GITHUB_REPOSITORY;
@@ -52,11 +52,14 @@ const body = {
 const out = { ...body, signature: env.FACTORY_EVIDENCE_KEY ? sign(body, env.FACTORY_EVIDENCE_KEY) : null };
 fs.writeFileSync('main-bundle.json', JSON.stringify(out, null, 2));
 
+let bundleUri = null;
 if (env.FACTORY_EVIDENCE_S3_URI) {
-  const key = `${env.FACTORY_EVIDENCE_S3_URI}/${new Date().toISOString().slice(0, 7)}/${sha}.json`;
-  sh('aws', ['s3', 'cp', 'main-bundle.json', key]);
-  console.log(`Stored ${key}`);
+  bundleUri = `${env.FACTORY_EVIDENCE_S3_URI}/${new Date().toISOString().slice(0, 7)}/${sha}.json`;
+  sh('aws', ['s3', 'cp', 'main-bundle.json', bundleUri]);
+  console.log(`Stored ${bundleUri}`);
 }
+// For the evidence index; the workflow runs it when a database is configured.
+fs.writeFileSync('index.sql', indexSql(body, repo, bundleUri || `${env.GITHUB_SERVER_URL || 'https://github.com'}/${repo}/actions/runs/${env.GITHUB_RUN_ID}`));
 
 const lines = [
   `### Evidence for ${sha.slice(0, 12)}`,
