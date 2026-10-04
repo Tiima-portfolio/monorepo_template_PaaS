@@ -24,6 +24,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `guardrails.mjs` | Owners' required checks and their rules for agents, from `guardrails.yaml` |
 | `budgets.mjs` | PR feedback time against the tier's budget in `budgets.yaml` |
 | `metrics-report.mjs` | Weekly flow and outcome metrics, posted as an issue |
+| `network.mjs` | Air-gap check: lock files, Dockerfiles and toolchains use only allowed hosts |
 | `test-quality.mjs` | Flags skipped and assertion-free tests in changed files |
 | `contracts.mjs` | Declared contracts exist and each consumes edge has a contract test |
 
