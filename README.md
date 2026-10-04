@@ -61,3 +61,13 @@ PR titles use conventional prefixes, because the squash commit title sets the ve
 ## Status
 
 Working skeleton, being built issue by issue. See the [skeleton issues](https://github.com/Tiima/monorepo_template_PaaS/issues?q=label%3Askeleton).
+
+## Setting up a copy of this template
+
+| Setting | Where | What for |
+| --- | --- | --- |
+| `FACTORY_APP_ID`, `FACTORY_APP_PRIVATE_KEY` | Repository secrets | The factory GitHub App. Give it Contents, Pull requests, Issues and Workflows read and write, and Actions read. The release and revert jobs mint a short-lived token from it on each run |
+| `FACTORY_RUNNER_PR`, `FACTORY_RUNNER_QUEUE`, `FACTORY_RUNNER_MAIN` | Repository variables | Runner labels for the three pools in [`platform/runners/`](platform/runners/); GitHub-hosted runners when unset |
+| `FACTORY_EVIDENCE_S3_URI`, `FACTORY_EVIDENCE_S3_ENDPOINT` and their secrets | Variables and secrets | The write-once evidence bucket; without them evidence stays as workflow artifacts |
+| `FACTORY_ADMIN_TOKEN` | Repository secret, optional | Lets the daily ruleset check re-apply drifted rulesets |
+| Rulesets | `node ci/factory/rulesets.mjs apply` | Branch protection for `main`; the merge queue and release-tag rulesets need an organization-owned repository |
