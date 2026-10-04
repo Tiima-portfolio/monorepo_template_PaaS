@@ -168,11 +168,26 @@ jobs:
           script=.factory/ci/factory/regression-cli.mjs
           [ -f "$script" ] || script=ci/factory/regression-cli.mjs
           node "$script"
-      - name: Diff coverage
+      # main's coverage per project, for the ratchet. Caches saved on main are
+      # readable from PRs, but a PR can't write to main's cache scope.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: factory-metrics.json
+          key: factory-metrics-${{ github.run_id }}
+          restore-keys: factory-metrics-
+      - name: Diff coverage and ratchet
         run: |
           script=.factory/ci/factory/diff-coverage-cli.mjs
           [ -f "$script" ] || script=ci/factory/diff-coverage-cli.mjs
-          FACTORY_GATE=gate/gate.json node "$script"
+          FACTORY_GATE=gate/gate.json FACTORY_METRICS_FILE=factory-metrics.json node "$script"
+      - name: Record main's coverage
+        if: github.event_name == 'push'
+        run: node ci/factory/metrics.mjs factory-metrics.json "$FACTORY_OUT/coverage-totals.json" "$GITHUB_SHA"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.event_name == 'push'
+        with:
+          path: factory-metrics.json
+          key: factory-metrics-${{ github.run_id }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-verify

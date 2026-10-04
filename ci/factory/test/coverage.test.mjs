@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addedLines, diffCoverage, parseGoCover, parseLcov } from '../coverage.mjs';
+import { addedLines, diffCoverage, parseGoCover, parseLcov, ratchet, totalCoverage } from '../coverage.mjs';
 
 test('lcov', () => {
   const c = parseLcov('TN:\nSF:src/a.ts\nDA:1,1\nDA:2,0\nend_of_record\n');
@@ -24,4 +24,10 @@ test('only executable changed lines count', () => {
   const cov = new Map([['src/a.ts', new Map([[1, 1], [2, 0]])]]);
   assert.deepEqual(diffCoverage(added, cov), { covered: 1, total: 2, pct: 50, uncovered: ['src/a.ts:2'] });
   assert.equal(diffCoverage(new Map(), cov).pct, null);
+});
+
+test('total coverage and the ratchet', () => {
+  const cov = new Map([['a.ts', new Map([[1, 1], [2, 0], [3, 2], [4, 1]])]]);
+  assert.equal(totalCoverage(cov), 75);
+  assert.deepEqual(ratchet({ a: 75, b: 50, c: 40 }, { a: { coverage: 75.4 }, b: { coverage: 60 } }), [{ name: 'b', before: 60, now: 50 }]);
 });

@@ -69,3 +69,27 @@ export function diffCoverage(added, coverage) {
   }
   return { covered, total, pct: total ? Math.round((covered / total) * 1000) / 10 : null, uncovered };
 }
+
+// Line coverage of a whole project, in percent, from a parser's output.
+export function totalCoverage(coverage) {
+  let covered = 0;
+  let total = 0;
+  for (const lines of coverage.values()) {
+    for (const hits of lines.values()) {
+      total++;
+      if (hits > 0) covered++;
+    }
+  }
+  return total ? Math.round((covered / total) * 1000) / 10 : null;
+}
+
+// The ratchet: a project's coverage may not drop more than `tolerance` points
+// below the last value recorded on main. Projects without a record pass.
+export function ratchet(totals, previous, tolerance = 0.5) {
+  const drops = [];
+  for (const [name, pct] of Object.entries(totals)) {
+    const before = previous[name]?.coverage;
+    if (typeof before === 'number' && pct < before - tolerance) drops.push({ name, before, now: pct });
+  }
+  return drops;
+}
