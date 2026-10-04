@@ -1,0 +1,26 @@
+# TypeScript on Node 24, which runs .ts files natively. TypeScript itself is a
+# devDependency of each project, pinned in the project's own lock file.
+setup:
+  mise:
+    node: "24"
+targets:
+  install:
+    command: npm ci --no-audit --no-fund
+    cache: false
+  lint:
+    command: npx tsc --noEmit
+    dependsOn: [install]
+    inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
+  test:
+    command: node --test
+    dependsOn: [install]
+    inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
+  build:
+    command: npx tsc
+    dependsOn: [install, "^build"]
+    inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
+    outputs: ["{projectRoot}/dist"]
+  package:
+    command: npm pack --pack-destination dist
+    dependsOn: [build]
+    outputs: ["{projectRoot}/dist/*.tgz"]

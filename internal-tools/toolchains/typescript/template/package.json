@@ -1,0 +1,12 @@
+{
+  "name": "__NAME__",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "files": ["dist/**/*.js", "!dist/**/*.test.js"],
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2"
+  }
+}

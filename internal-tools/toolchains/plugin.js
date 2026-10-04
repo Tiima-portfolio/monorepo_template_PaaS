@@ -44,8 +44,9 @@ function toTarget(spec, vars) {
     options: { command: fill(spec.command, vars), cwd: vars.projectRoot },
     cache: spec.cache !== false,
   };
-  if (spec.inputs) target.inputs = fill(spec.inputs, vars);
-  if (spec.outputs) target.outputs = fill(spec.outputs, vars);
+  // Nx resolves {projectRoot} in inputs and outputs itself.
+  if (spec.inputs) target.inputs = spec.inputs;
+  if (spec.outputs) target.outputs = spec.outputs;
   if (spec.dependsOn) target.dependsOn = spec.dependsOn;
   return target;
 }
