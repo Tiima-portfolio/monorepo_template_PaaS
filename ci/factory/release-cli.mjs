@@ -51,9 +51,11 @@ function releasableProjects() {
 }
 
 const start = git('rev-parse', 'HEAD');
-// Cursor state: { sha, pending: [release] } in the draft release's body.
+// Cursor state: { sha, pending: [release] } in the draft release's body. A
+// draft has no tag, so GitHub reports an "untagged-..." tag name; find it by
+// its name instead.
 function readCursor() {
-  const rel = dry ? null : tryRun(() => JSON.parse(sh('gh', ['api', `repos/${repo}/releases`, '--paginate', '--jq', `[.[] | select(.tag_name == "${CURSOR}")] | first`]) || 'null'));
+  const rel = dry ? null : tryRun(() => JSON.parse(sh('gh', ['api', `repos/${repo}/releases`, '--paginate', '--jq', `[.[] | select(.draft and .name == "${CURSOR}")] | sort_by(.created_at) | last`]) || 'null'));
   if (rel?.body) return { id: rel.id, ...JSON.parse(rel.body) };
   const legacy = tryRun(() => git('rev-parse', '-q', '--verify', `refs/tags/${LEGACY_CURSOR_TAG}^{commit}`));
   return { id: rel?.id || null, sha: legacy || null, pending: [] };
