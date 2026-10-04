@@ -18,13 +18,13 @@ evidence:
   mutation-score:       { mode: shadow,  about: "Mutation score on the diff" }
   integration-broad:    { mode: shadow,  about: "Broad integration tests" }
   # Shadow until real owner teams exist: in a template every PR has one author.
-  owner-approval:       { mode: shadow,  about: "Approval by the owning team" }
+  owner-approval:       { mode: shadow,  about: "Approvals routed from each service's owner and guardrails.yaml" }
 
 tiers:
   R0: [boundary, title, history, format-lint]
-  R1: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage]
+  R1: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage, owner-approval]
   R2: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage,
-       contract-tests, integration-selected, mutation-score]
+       contract-tests, integration-selected, mutation-score, owner-approval]
   R3: [boundary, title, history, format-lint, build, unit-tests, dependency-rules, diff-coverage,
        contract-tests, integration-selected, mutation-score, integration-broad, owner-approval]
 
