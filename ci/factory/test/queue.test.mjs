@@ -45,3 +45,12 @@ test('a rule change enters only an empty queue, alone', () => {
   const held = selectToEnqueue({ candidates: [other], queue: [{ number: rule.number, ruleChange: true }], policy });
   assert.equal(held.picks.length, 0);
 });
+
+test('workspace changes wait for the off-peak window, except P0', () => {
+  const ws = pr({ files: ['package.json'] });
+  const day = new Date('2026-10-04T12:00:00Z');
+  const night = new Date('2026-10-04T22:00:00Z');
+  assert.match(selectToEnqueue({ candidates: [ws], queue: [], policy, now: day }).waiting[0].reason, /off-peak/);
+  assert.equal(selectToEnqueue({ candidates: [ws], queue: [], policy, now: night }).picks.length, 1);
+  assert.equal(selectToEnqueue({ candidates: [pr({ files: ['nx.json'], labels: ['ready', 'P0'] })], queue: [], policy, now: day }).picks.length, 1);
+});

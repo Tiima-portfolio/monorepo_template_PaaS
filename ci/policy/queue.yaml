@@ -21,3 +21,8 @@ rule_change_paths:
   - "ci/factory/**"
   - ".github/**"
   - "**/guardrails.yaml"
+
+# Workspace changes (root files) rebuild every project, so they enter the queue
+# only in this off-peak window (UTC hours, wrapping past midnight). P0 ignores it.
+workspace_paths: [nx.json, package.json, package-lock.json, .gitignore, .node-version, .npmrc]
+off_peak_utc: { from: 20, to: 6 }
