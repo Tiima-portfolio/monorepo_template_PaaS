@@ -4,7 +4,7 @@ name: factory
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review]
   merge_group:
   # The post-merge check: main is verified again, since without a merge queue
   # the squash commit can differ from what the PR verified.
@@ -99,7 +99,8 @@ jobs:
   verify:
     name: factory/verify
     needs: gate
-    if: needs.gate.outputs.affected != '0'
+    # Draft PRs run only the gate; build and tests start when marked ready.
+    if: needs.gate.outputs.affected != '0' && !github.event.pull_request.draft
     # The tier's hard limit for PR feedback, from ci/policy/budgets.yaml.
     timeout-minutes: ${{ fromJSON(needs.gate.outputs.hard_minutes || '60') }}
     permissions:
