@@ -8,6 +8,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `boundary.mjs` | The PR stays inside one boundary from `boundaries.yaml` |
 | `risk.mjs` | Sets the risk tier R0 to R3 from `risk.yaml` |
 | `evidence.mjs` | Lists the evidence a tier requires, from `evidence.yaml` |
+| `checks.mjs` | Conventional PR title, no merge commits, agent provenance and trust from `agents.yaml` |
 
 Run the tests:
 

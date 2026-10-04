@@ -1,0 +1,24 @@
+# Agents are workers, not exceptions: they use the same pipeline as humans.
+# Identity comes from the GitHub account that pushed, never from trailers.
+
+trust_levels:
+  experimental: { merges_alone: [] }
+  observed:     { merges_alone: [R0] }
+  trusted:      { merges_alone: [R0, R1] }
+  autonomous:   { merges_alone: [R0, R1, R2] }   # R3 always needs a human
+
+# No agent may change these, whatever its trust level.
+forbidden_paths: ["ci/policy/**", ".github/**"]
+
+# Every commit of an agent PR carries these trailers.
+required_trailers: [Agent-Id, Agent-Model, Agent-Task, Requested-By]
+
+# Registered agents. Promoting one is an R3 change to this file.
+agents:
+  - id: example-docs-agent
+    account: example-docs-agent[bot]
+    sponsor: team-platform
+    trust: observed
+    boundaries: [docs]
+    max_open_prs: 5
+    max_queue_entries_per_hour: 10
