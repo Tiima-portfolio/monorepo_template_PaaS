@@ -18,3 +18,9 @@ automatically; the CI/platform team applies it with its own tooling.
 - **Only `main` runners write.** They build commits already admitted to
   `main`: cache writes, image pushes and releases happen there.
 - **Every job gets a fresh runner.** Runners are ephemeral and never reused.
+
+## Evidence index
+
+[`evidence/schema.sql`](evidence/schema.sql) creates the index table. When the
+`FACTORY_EVIDENCE_DB_URL` secret is set, the evidence collector writes one row
+per check and per decision for every commit on `main`.
