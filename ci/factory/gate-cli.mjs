@@ -20,6 +20,7 @@ import { loadPolicy } from './lib/policy.mjs';
 import { miseToml } from './lib/mise.mjs';
 import { route } from './owners.mjs';
 import { activeQuarantine } from './flaky.mjs';
+import { checkDependencies } from './deps.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -53,10 +54,11 @@ function affected() {
     const names = JSON.parse(execFileSync('npx', ['nx', 'show', 'projects', '--affected', `--base=${base}`, `--head=${head}`, '--json'], { encoding: 'utf8' }));
     const graphFile = path.join(out, 'graph.json');
     execFileSync('npx', ['nx', 'graph', `--file=${graphFile}`], { stdio: 'ignore' });
-    const nodes = JSON.parse(fs.readFileSync(graphFile, 'utf8')).graph.nodes;
+    const graph = JSON.parse(fs.readFileSync(graphFile, 'utf8')).graph;
+    const nodes = graph.nodes;
     const tags = names.flatMap((n) => nodes[n]?.data?.tags || []);
     const pick = (prefix) => [...new Set(tags.filter((t) => t.startsWith(prefix)).map((t) => t.slice(prefix.length)))];
-    return { names, nodes, criticalities: pick('criticality:'), toolchains: pick('toolchain:') };
+    return { names, nodes, graph, criticalities: pick('criticality:'), toolchains: pick('toolchain:') };
   } catch (e) {
     console.error(`Could not read the Nx graph: ${e.message}`);
     return { names: [], nodes: {}, criticalities: [], toolchains: [], error: true };
@@ -121,6 +123,10 @@ record('boundary', boundary.ok, boundary.message);
 record('title', title.ok, title.message);
 record('history', history.ok, history.message);
 record('provenance', provenance.ok, provenance.message);
+if (aff.graph) {
+  const problems = checkDependencies(aff.graph);
+  record('dependency-rules', problems.length === 0, problems.length ? problems.join('; ') : 'dependency directions and no cycles');
+}
 
 // With nothing affected the verify job doesn't run; say so in the evidence.
 if (aff.names.length === 0 && !aff.error) {

@@ -1,0 +1,14 @@
+# Who may depend on whom. Inside a boundary, projects may share source.
+# Across boundaries a dependency must go through a published contract or a
+# released version: in the Nx graph that is an implicit edge (consumes or
+# dependsOn in service.yaml), never a static import of another project's code.
+dependencies:
+  product:            [product, internal-services, test-framework]
+  internal-services:  [product, internal-services, test-framework]
+  internal-tools:     [product, internal-services, internal-tools, test-framework]
+  ci:                 [internal-tools]
+  platform:           [internal-tools]
+  test-framework:     [test-framework]
+
+# Service-to-service dependencies must stay acyclic.
+no_cycles: [product, internal-services, internal-tools]
