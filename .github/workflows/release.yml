@@ -1,0 +1,47 @@
+# Publishes versioned artifacts for every service a commit on main changed.
+# Nothing is deployed: delivery ends when the artifact is available.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One release run at a time. A newer run may replace a waiting one; the cursor
+# tag means no commit is skipped either way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  NX_DAEMON: "false"
+  NX_NO_CLOUD: "true"
+
+jobs:
+  release:
+    name: factory/release
+    runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Toolchains for every service
+        run: node ci/factory/mise-all.mjs > mise.local.toml
+      - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "factory-release"
+          git config user.email "factory-release@users.noreply.github.com"
+          node ci/factory/release-cli.mjs
