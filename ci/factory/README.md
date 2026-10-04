@@ -19,6 +19,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `regression-cli.mjs` | For escape-fix PRs: the new test fails on the parent commit |
 | `deps.mjs` | Dependency directions between boundaries and no cycles, from `invariants.yaml` |
 | `test-quality.mjs` | Flags skipped and assertion-free tests in changed files |
+| `contracts.mjs` | Declared contracts exist and each consumes edge has a contract test |
 
 Run the tests:
 
