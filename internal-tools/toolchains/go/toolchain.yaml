@@ -1,0 +1,20 @@
+# Go. In the air-gapped network, GOPROXY points at the internal module mirror.
+setup:
+  mise:
+    go: "1.25"
+targets:
+  lint:
+    command: test -z "$(gofmt -l .)" && go vet ./...
+    inputs: ["{projectRoot}/**/*.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
+  test:
+    command: go test ./...
+    inputs: ["{projectRoot}/**/*.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
+  build:
+    command: CGO_ENABLED=0 go build -trimpath -o dist/{name} .
+    dependsOn: ["^build"]
+    inputs: ["{projectRoot}/**/*.go", "!{projectRoot}/**/*_test.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
+    outputs: ["{projectRoot}/dist/{name}"]
+  package:
+    command: tar -czf dist/{name}.tar.gz -C dist {name}
+    dependsOn: [build]
+    outputs: ["{projectRoot}/dist/{name}.tar.gz"]

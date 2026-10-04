@@ -44,9 +44,10 @@ function toTarget(spec, vars) {
     options: { command: fill(spec.command, vars), cwd: vars.projectRoot },
     cache: spec.cache !== false,
   };
-  // Nx resolves {projectRoot} in inputs and outputs itself.
-  if (spec.inputs) target.inputs = spec.inputs;
-  if (spec.outputs) target.outputs = spec.outputs;
+  // Nx resolves {projectRoot} in inputs and outputs itself; only {name} is ours.
+  const nameOnly = { name: vars.name, projectRoot: '{projectRoot}' };
+  if (spec.inputs) target.inputs = fill(spec.inputs, nameOnly);
+  if (spec.outputs) target.outputs = fill(spec.outputs, nameOnly);
   if (spec.dependsOn) target.dependsOn = spec.dependsOn;
   return target;
 }
