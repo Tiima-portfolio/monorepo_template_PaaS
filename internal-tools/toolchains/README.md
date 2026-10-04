@@ -47,3 +47,9 @@ Each toolchain folder is also an Nx project, `toolchain-<name>`, and every
 service depends on the toolchains it lists. A change to the Go toolchain
 therefore re-tests every Go service, and they get a patch release when it
 merges.
+
+A toolchain may also define a `mutation` target that writes
+`mutation/report.json` (files with their mutations, each KILLED or LIVED).
+The factory uses it for the mutation score from risk tier R2 up and in the
+nightly run. Go has it, through gremlins; other languages can add it in
+their own folder.
