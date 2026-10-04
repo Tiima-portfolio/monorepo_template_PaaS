@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addedLines, diffCoverage, parseGoCover, parseLcov, ratchet, totalCoverage } from '../coverage.mjs';
+import { addedLines, diffCoverage, parseGoCover, parseLcov, ratchet, totalCoverage, diffMutation } from '../coverage.mjs';
 
 test('lcov', () => {
   const c = parseLcov('TN:\nSF:src/a.ts\nDA:1,1\nDA:2,0\nend_of_record\n');
@@ -30,4 +30,13 @@ test('total coverage and the ratchet', () => {
   const cov = new Map([['a.ts', new Map([[1, 1], [2, 0], [3, 2], [4, 1]])]]);
   assert.equal(totalCoverage(cov), 75);
   assert.deepEqual(ratchet({ a: 75, b: 50, c: 40 }, { a: { coverage: 75.4 }, b: { coverage: 60 } }), [{ name: 'b', before: 60, now: 50 }]);
+});
+
+test('mutation score counts only changed lines', () => {
+  const report = { files: [{ file_name: 'a.go', mutations: [
+    { line: 4, status: 'KILLED' }, { line: 4, status: 'LIVED', type: 'CONDITIONALS_BOUNDARY' }, { line: 9, status: 'LIVED' }, { line: 4, status: 'NOT COVERED' },
+  ] }] };
+  const r = diffMutation(new Map([['a.go', new Set([4])]]), report);
+  assert.equal(r.pct, 50);
+  assert.deepEqual(r.survivors, ['a.go:4 CONDITIONALS_BOUNDARY']);
 });

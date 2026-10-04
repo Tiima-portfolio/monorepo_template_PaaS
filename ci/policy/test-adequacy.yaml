@@ -4,3 +4,8 @@ diff_coverage:
   # Percent of changed executable lines that unit tests run, per criticality.
   normal: 80
   critical: 90
+
+mutation_score:
+  # Percent of mutants on changed lines that the tests kill, from risk tier R2 up.
+  normal: 70
+  critical: 80
