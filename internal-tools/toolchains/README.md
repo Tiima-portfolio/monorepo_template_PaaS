@@ -55,3 +55,7 @@ nightly run. Go uses gremlins, TypeScript Stryker, Python mutmut and Rust
 cargo-mutants; a small converter in each toolchain folder writes the common
 report. `{toolchainDir}` in a command is the toolchain folder, relative to
 the project.
+
+Test targets also write per-test reports to `test-results/` (JUnit XML for
+TypeScript and Python, Go's JSON test events), so the factory can quarantine
+a single flaky test instead of a whole project.

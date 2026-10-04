@@ -11,8 +11,8 @@ targets:
   test:
     # Also writes coverage/lcov.info for the factory's diff coverage. pytest-cov
     # comes from the package index (the internal mirror), not the project.
-    command: mkdir -p coverage && COVERAGE_FILE=coverage/.coverage uv run --with pytest-cov pytest -q --cov=src --cov-report=lcov:coverage/lcov.info
-    outputs: ["{projectRoot}/coverage"]
+    command: mkdir -p coverage test-results && COVERAGE_FILE=coverage/.coverage uv run --with pytest-cov pytest -q --cov=src --cov-report=lcov:coverage/lcov.info --junitxml=test-results/junit.xml
+    outputs: ["{projectRoot}/coverage", "{projectRoot}/test-results"]
     inputs: ["{projectRoot}/**/*.py", "{projectRoot}/pyproject.toml", "{projectRoot}/uv.lock"]
   build:
     # FACTORY_VERSION is set by the release job; local builds stay 0.0.0.
