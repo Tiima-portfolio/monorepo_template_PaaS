@@ -21,6 +21,7 @@ targets:
     inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
     outputs: ["{projectRoot}/dist"]
   package:
-    command: npm pack --pack-destination dist
+    # FACTORY_VERSION is set by the release job; local packages stay 0.0.0.
+    command: npm version "${FACTORY_VERSION:-0.0.0}" --no-git-tag-version --allow-same-version && npm pack --pack-destination dist
     dependsOn: [build]
     outputs: ["{projectRoot}/dist/*.tgz"]

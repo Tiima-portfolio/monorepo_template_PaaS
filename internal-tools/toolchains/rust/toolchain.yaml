@@ -16,6 +16,7 @@ targets:
     inputs: ["{projectRoot}/src/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
     outputs: ["{projectRoot}/target/release/{name}"]
   package:
-    command: mkdir -p dist && tar -czf dist/{name}.tar.gz -C target/release {name}
+    # FACTORY_VERSION is set by the release job.
+    command: mkdir -p dist && tar -czf "dist/{name}-${FACTORY_VERSION:-0.0.0}.tar.gz" -C target/release {name}
     dependsOn: [build]
-    outputs: ["{projectRoot}/dist/{name}.tar.gz"]
+    outputs: ["{projectRoot}/dist/{name}-*.tar.gz"]

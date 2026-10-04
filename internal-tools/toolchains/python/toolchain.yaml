@@ -12,7 +12,8 @@ targets:
     command: uv run pytest -q
     inputs: ["{projectRoot}/**/*.py", "{projectRoot}/pyproject.toml", "{projectRoot}/uv.lock"]
   build:
-    command: uv build --wheel --out-dir dist
+    # FACTORY_VERSION is set by the release job; local builds stay 0.0.0.
+    command: uv version --frozen "${FACTORY_VERSION:-0.0.0}" && uv build --wheel --out-dir dist
     dependsOn: ["^build"]
     inputs: ["{projectRoot}/src/**/*.py", "{projectRoot}/pyproject.toml", "{projectRoot}/uv.lock"]
     outputs: ["{projectRoot}/dist"]
