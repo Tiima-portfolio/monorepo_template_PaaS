@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { diff, normalize } from '../rulesets.mjs';
+import { apiBody, diff, normalize } from '../rulesets.mjs';
 
 const want = JSON.parse(fs.readFileSync(new URL('../../../.github/rulesets/main.json', import.meta.url)));
 
@@ -24,4 +24,14 @@ test('drift is reported by field', () => {
   const live = { ...want, enforcement: 'disabled' };
   assert.deepEqual(diff(want, live), ['enforcement']);
   assert.ok(normalize(want).rules.length > 0);
+});
+
+test('defaults GitHub adds to rule parameters are not drift', () => {
+  const live = JSON.parse(JSON.stringify(want));
+  live.rules.find((r) => r.type === 'pull_request').parameters.required_reviewers = [];
+  assert.deepEqual(diff(want, live), []);
+});
+
+test('our own keys are never sent', () => {
+  assert.equal(apiBody({ _optional: 'x', name: 'n' })._optional, undefined);
 });
