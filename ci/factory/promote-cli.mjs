@@ -23,9 +23,10 @@ if (!released.length) {
 
 const pinsFiles = git('ls-files', '*pins.yaml').split('\n').filter((f) => f.endsWith('/pins.yaml'))
   .map((p) => ({ path: p, pins: YAML.parse(fs.readFileSync(p, 'utf8'))?.pins || {} }));
-// Open escape issues name the service in brackets, e.g. "escape: [orders] ...".
+// Open escape issues name the service as the title's scope, e.g.
+// "escape: fix(orders): ...", or in brackets, "escape: [orders] ...".
 const escapes = JSON.parse(sh('gh', ['api', `repos/${repo}/issues?labels=escape&state=open&per_page=100`, '--jq', '[.[].title]']) || '[]');
-const holds = released.map((r) => r.service).filter((s) => escapes.some((t) => t.includes(`[${s}]`)));
+const holds = released.map((r) => r.service).filter((s) => escapes.some((t) => t.includes(`(${s})`) || t.includes(`[${s}]`)));
 for (const s of holds) console.log(`::warning::Promotion of ${s} is on hold: it has an open escape.`);
 
 const start = git('rev-parse', 'HEAD');
