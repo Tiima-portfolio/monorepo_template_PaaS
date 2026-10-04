@@ -71,8 +71,8 @@ The plan uses a few short labels from the factory spec; this is what each one me
 
 | Tier | Meaning | Typical change | Evidence needed |
 | --- | --- | --- | --- |
-| R0 | Can't change shipped behaviour | Docs, comments, tests only | Format and lint |
-| R1 | Normal change inside one service's internals | A bug fix or feature that keeps the contract | Build, unit tests of affected projects, dependency rules, diff coverage |
+| R0 | Can't change shipped behaviour | Docs and comments only | Format and lint |
+| R1 | Normal change inside one service's internals | A bug fix or feature that keeps the contract, or a test-only change | Build, unit tests of affected projects, dependency rules, diff coverage |
 | R2 | Can affect other services | Contract or schema change, shared library, many affected projects | R1 plus contract tests, selected integration tests, mutation score |
 | R3 | Can affect the whole factory or critical data | `ci/`, `platform/`, toolchains, auth, data migrations, major version bumps, overrides | R2 plus broad integration tests and a human owner's approval |
 
@@ -86,6 +86,8 @@ flowchart LR
 ```
 
 Some things raise a tier by one: an owner's protected path, weak test history, an agent above its trust level, or more than three owning teams.
+
+Test-only changes are never R0: they run at least the changed project's own tests. A change that deletes tests, skips them or removes assertions needs the owning team's approval, because weakening tests can't be allowed through on lint alone.
 
 **Merge priorities (P0 to P4)** set the order in the merge queue, not the evidence needed.
 
@@ -348,6 +350,12 @@ flowchart TD
 - **Contributor not listed:** the owner must approve, whatever the tier. Owners grow their contributor list as trust builds, the same way agents earn autonomy.
 - **Too many owners:** a PR that needs approval from more than three owning teams is R3, and the gate suggests splitting it by service with the same `Feature-Id`.
 
+**New services and owner changes.** The base branch can't name an owner for a service that doesn't exist yet, so the first PR could otherwise pick its own approvers.
+
+- **Creating a service or tool:** approved by a catalog approver for that area, listed in `ci/policy/catalog-approvers.yaml`, as well as by the team named as owner.
+- **Changing a service's owner:** approved by both the current owner, read from the base branch, and the new owner.
+- **Removing a service:** approved by its current owner, and the gate refuses while the catalog still shows consumers.
+
 **Agents act for a team.** Each agent in `agents.yaml` has a sponsoring team. An agent's PR gets that team's contributor rights, capped by the agent's own trust level, and a human from the sponsoring team or the owner approves it, never the requester alone.
 
 **Routing is automatic.** The gate works out the required approvers per touched service and lists them in its PR comment, so nobody has to know who owns what.
@@ -413,7 +421,9 @@ The merge queue re-runs verification on the batched result before it lands, so `
 Two rules keep the pipeline honest:
 
 - **The gate judges from the base branch.** The gate and admission code always run from the base branch, never from the PR head. A PR that changes them is judged by the current rules, and its changes apply only after it merges.
-- **Only trusted builds write the cache.** PR builds, including agent PRs, read the remote cache but never write to it. Only merge queue and `main` builds write, so one bad PR cannot plant wrong results.
+- **Only trusted builds write the cache.** PR builds and merge queue builds read the remote cache but never write to it, because both run build scripts the PR may have changed. Only builds of commits already on `main` write, using write credentials that only the `main` runner pool holds, so one bad PR cannot plant wrong results.
+
+- **Rule changes merge alone.** A PR that changes the gate, admission, `ci/policy/` or any owner's `guardrails.yaml` is never batched with other PRs: the queue controller lets the queue drain, merges it on its own, and then re-runs the gate and admission for every PR still waiting, under the new rules, before any of them enters the queue.
 
 Factory automation runs as one GitHub App. It keeps a single comment per PR up to date instead of posting new ones, and queues and batches its API calls to stay under GitHub's rate limits.
 
@@ -439,7 +449,7 @@ The merge queue is the one place every change passes through, so it's run as a p
 | --- | --- |
 | A bad PR breaks a batch | The batch is bisected and only the culprit is ejected; the rest merge |
 | A bad commit reaches `main` anyway | A post-merge check on `main` finds it; the factory opens and fast-tracks a pure revert as P0, and the queue keeps running |
-| Flaky tests | Retry once, quarantine on pass-after-fail; the queue's required checks only include tests that aren't quarantined |
+| Flaky tests | Retry once; quarantine only after 20 reruns confirm the flake, for at most 5 working days; quarantined tests still block if they fail three runs in a row |
 | Not enough runners | A dedicated runner pool serves only the merge queue and `main`, with a warm minimum that never scales to zero, so PR load can't starve it |
 | Too many PRs at once | Backpressure: when queue depth passes its limit, P4 and then P3 stop entering; P0 to P2 keep flowing |
 | Remote cache down | Builds fall back to running without the cache: slower, but not stuck |
@@ -463,7 +473,7 @@ The merge queue is the one place every change passes through, so it's run as a p
 | Ejecting only the culprit | GitHub builds each queue entry together with everything ahead of it. When an entry fails, GitHub removes that PR and rebuilds the entries behind it without it |
 | P0 to P4 order and backpressure | GitHub's queue has no priorities, only "jump to the front". So a PR that passes admission isn't added to GitHub's queue directly: the queue controller holds it in its own priority list and enqueues by priority, then age, only while GitHub's queue is below its depth limit. P0 uses the API's jump option |
 | Auto-revert on a red `main` | A workflow on every push to `main` re-runs the affected checks. On failure the factory App creates a `git revert` PR of that squash commit, labels it P0 and enqueues it with jump |
-| Flaky test quarantine | Each toolchain's test wrapper retries a failed test once and reports both results. The collector marks pass-after-fail tests as quarantined in the evidence index, and the wrapper fetches that list at run time, so quarantined tests still run and report but can't fail the queue |
+| Flaky test quarantine | Each toolchain's test wrapper retries a failed test once and reports both results. The collector schedules 20 reruns for a pass-after-fail test and marks it quarantined in the evidence index only if they both pass and fail, and the wrapper fetches that list at run time, so quarantined tests still run and report but can't fail the queue |
 | Dedicated, warm runners | Actions Runner Controller on the platform Kubernetes cluster runs separate ephemeral runner scale sets: `queue` for `merge_group` and `main` jobs with a minimum number always running, and `pr` for PR jobs. Workflows choose them by runner label |
 | Cache and mirror outages | The Nx remote cache client has a short timeout and falls back to a local build on error. Queue runner images come with base images and package caches pre-loaded |
 | Evidence store outage | Admission reads the verified records straight from the run's Actions artifacts. The collector writes to the bucket with retries and alerts after its retry budget runs out |
@@ -501,8 +511,10 @@ flowchart LR
 How it stays trustworthy:
 
 - **Records use one format.** Each record is an in-toto attestation whose subject is the commit SHA and its git tree hash, with the check name, result, tool versions and timing as the payload.
-- **PR jobs can't write it.** PR runners have no secrets, so they only hand records over as Actions artifacts. A separate trusted workflow, running base-branch code, verifies them, signs the bundle with the factory App's key, and writes it to the bucket and index.
-- **Tree hash links PR to `main`.** The squash commit on `main` has the same tree as the merge queue build that passed, so its evidence carries over to `main` and on to the release without re-running.
+- **The trusted workflows can't be changed by a PR.** The gate, admission and collector are ruleset-required workflows, pinned to the workflow files on the default branch. A PR that edits them doesn't change what judges it.
+- **Pass or fail comes from GitHub, not the record.** PR runners have no secrets and only hand records over as Actions artifacts. The collector doesn't trust a record's own result: for each record it reads the job's conclusion, workflow file path and ref, run ID and the commit SHA it checked out from the GitHub API, and accepts the record only when all of them match the required check. Measurements in the record, such as coverage, are kept only from those verified jobs.
+- **Signed by the factory, after verification.** The collector, running base-branch code, signs the bundle with the factory App's key and writes it to the bucket and index.
+- **Merge queue evidence carries over only when proven.** A merge queue build runs on a temporary commit, not the squash commit that lands on `main`. After the merge, the collector compares the git tree of the new `main` commit with the tree of the merge queue commit the evidence was recorded on. Only an exact match links the evidence to `main` and the release; any mismatch makes the post-merge check on `main` run the full required set again.
 - **Nothing is edited.** Object lock means a bundle can't be changed or deleted before it expires; an override or a later escape is a new record that points at the old one.
 - **One source for every report.** Metrics, test adequacy, agent trust, escape trace-back and feature lead time are all queries on the index, so every number traces back to a signed record.
 
@@ -513,11 +525,11 @@ How it stays trustworthy:
 - **Tag format:** `<service>/v<semver>`, for example `orders/v1.4.2`, on the squash commit that was released.
 - **Bump level:** the PR title uses conventional prefixes (`fix:` patch, `feat:` minor, `feat!:` major). The gate checks the title against the contract diff, as set out below.
 - **Who tags:** only the release job's GitHub App may create these tags; a ruleset blocks everyone else and makes tags immutable.
-- **Concurrency:** releases of the same service run one at a time, so two quick merges can't claim the same version.
+- **Order:** releases follow the order of `main`, not the order jobs happen to start. A single release controller keeps a cursor at the last released commit and, on each run, walks every newer `main` commit in history order. A run that is cancelled or starts late loses nothing, because the next run picks up from the cursor.
 - **Changelog:** generated from the squash commit titles that touched the service since its previous tag; linear history makes that list exact.
 - **Clone cost:** with about 100 services releasing often, tags reach tens of thousands. CI fetches without tags and pulls only the one service's latest tag it needs.
 
-The release job is idempotent and retried on failure. A commit on `main` that stays unpublished raises an alert.
+The release is a pair: the artifact is published first, under its immutable digest, and the tag is created only after it. On every run the controller reconciles pairs: a tag without its artifact is rebuilt and republished from the tagged commit, and an artifact without its tag gets the tag. A commit on `main` that stays unpublished raises an alert.
 
 ### Choosing major, minor or patch
 
@@ -567,21 +579,21 @@ How the budgets hold:
 - **Tests have levels.** Unit tests use no network, containers or sleeps, and run in every PR. Slower tests are tagged `contract` or `integration` and run only from R2 up. The toolchain enforces the tags, so a slow test cannot hide in the unit suite.
 - **Drift is an issue, not a surprise.** Each target's duration is stored with the evidence. When a project's 7-day p90 passes its budget, the factory opens an issue on its owners, like an escape, to split the project or move tests to the right level.
 - **The cache must earn its keep.** The target is at least 80% remote cache hits on PR builds. A drop below that alerts the CI/platform team, since a missed cache usually means unstable inputs.
-- **Flaky tests are quarantined.** A test that fails and then passes on the same commit is moved to quarantine automatically. It stops blocking merges, an issue opens on its owners, and it must be fixed or removed within 5 working days.
+- **Flaky tests are quarantined.** A test is quarantined only after the factory confirms it is flaky: it reruns the test 20 times on the same commit, and it must both pass and fail. A test that fails every time is a real failure, not a flake. It stops blocking merges, an issue opens on its owners, and it must be fixed or removed within 5 working days.
 - **Agents get the same budgets.** An agent PR that blows a hard limit fails like any other.
 
 **How quarantine works.** No PR is needed. The factory handles it end to end:
 
-1. **Detect.** The test runner retries a failed test once on the same commit. If the test passes on the retry, the CI job reports it as flaky.
+1. **Detect.** The test runner retries a failed test once on the same commit. If the test passes on the retry, the CI job reports it as possibly flaky, and the factory confirms it with 20 reruns on that commit before anything is quarantined.
 2. **Quarantine.** The factory adds the test ID to a quarantine list that it stores outside the repo. Every CI job reads that list when it starts.
 3. **Keep running.** Quarantined tests still run, but their results are recorded and don't block merges. The factory opens an issue for the service owners through the GitHub API.
-4. **Release or escalate.** A test leaves quarantine once its fix passes 20 repeated runs. If 5 working days pass without a fix, the factory marks the issue overdue. Who follows up, and how, is up to the owning team's way of working, not CI. The test must still be fixed or removed.
+4. **Release or escalate.** A test leaves quarantine once its fix passes 20 repeated runs. If 5 working days pass without a fix, the factory marks the issue overdue and the quarantine expires, so the test blocks merges again. Who follows up, and how, is up to the owning team's way of working, not CI. The test must still be fixed or removed.
 
 Three more rules keep the budgets fair:
 
 - **Cold cache gets headroom.** Hard limits apply to warm-cache runs. A run flagged cache-cold, such as the first after a toolchain bump, gets double the limit.
-- **Flake handling ships with the first merge queue.** A failed test is retried once, and a pass after a fail quarantines it at once.
-- **Quarantine has limits.** Quarantined tests still run and report, each service has a quarantine cap, and time in quarantine counts in its metrics.
+- **Flake handling ships with the first merge queue.** A failed test is retried once; quarantine needs the 20-rerun confirmation, never a single pass.
+- **Quarantine has limits.** Quarantined tests still run and report, each service has a quarantine cap, and time in quarantine counts in its metrics. While any of a service's tests is quarantined, that service's PRs are one tier up and the quarantined test runs three times on each of them: if it fails all three, the PR is blocked. Quarantine lasts at most 5 working days.
 
 ## Knowing the tests are enough
 
@@ -692,7 +704,7 @@ The skeleton assumes no direct internet access from developer machines or CI; Gi
 - **GitHub Actions:** only actions vendored into this repo or into an approved GitHub organisation, pinned by commit SHA; no marketplace action that downloads at run time.
 - **Check:** CI fails a change that adds a URL to a public package registry in toolchain or lock files.
 
-- **Runners are ephemeral.** Each job gets a fresh runner. PR runners hold no secrets; only merge queue and `main` runners can publish or write the cache.
+- **Runners are ephemeral.** Each job gets a fresh runner. PR and merge queue runners hold no secrets; only `main` runners can publish or write the cache.
 - **New packages are self-service.** A developer requests a missing package, security approves it, the mirror syncs, and the waiting PR re-runs on its own.
 - **Security fixes are fast.** The mirror syncs on a schedule with a fast lane for security fixes, and the dependency update bot runs inside the network against the mirror.
 - **Clones are partial.** CI uses partial clones deep enough to find the merge base, with a git cache on the runners, so 300 agents don't saturate GitHub.
