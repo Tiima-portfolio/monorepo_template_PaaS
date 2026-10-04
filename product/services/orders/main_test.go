@@ -7,3 +7,9 @@ func TestGreeting(t *testing.T) {
 		t.Fatalf("Greeting() = %q, want %q", got, want)
 	}
 }
+
+func TestGreetingWithoutName(t *testing.T) {
+	if got, want := Greeting("  "), "Hello from orders, guest"; got != want {
+		t.Fatalf("Greeting() = %q, want %q", got, want)
+	}
+}
