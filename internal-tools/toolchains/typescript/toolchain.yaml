@@ -12,8 +12,10 @@ targets:
     dependsOn: [install]
     inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
   test:
-    command: node --test
+    # Also writes coverage/lcov.info for the factory's diff coverage.
+    command: mkdir -p coverage && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info
     dependsOn: [install]
+    outputs: ["{projectRoot}/coverage"]
     inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**", "!{projectRoot}/node_modules/**"]
   build:
     command: npx tsc

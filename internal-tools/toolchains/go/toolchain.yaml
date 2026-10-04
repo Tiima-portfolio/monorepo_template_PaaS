@@ -7,7 +7,9 @@ targets:
     command: test -z "$(gofmt -l .)" && go vet ./...
     inputs: ["{projectRoot}/**/*.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
   test:
-    command: go test ./...
+    # Also writes coverage/cover.out for the factory's diff coverage.
+    command: mkdir -p coverage && go test -coverprofile=coverage/cover.out ./...
+    outputs: ["{projectRoot}/coverage"]
     inputs: ["{projectRoot}/**/*.go", "{projectRoot}/go.mod", "{projectRoot}/go.sum"]
   build:
     command: CGO_ENABLED=0 go build -trimpath -o dist/{name} .
