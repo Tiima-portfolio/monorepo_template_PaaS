@@ -23,6 +23,7 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | `promote.mjs` | Promotion bot: bump PRs for consumers that pin a released service in `pins.yaml` |
 | `guardrails.mjs` | Owners' required checks and their rules for agents, from `guardrails.yaml` |
 | `budgets.mjs` | PR feedback time against the tier's budget in `budgets.yaml` |
+| `metrics-report.mjs` | Weekly flow and outcome metrics, posted as an issue |
 | `test-quality.mjs` | Flags skipped and assertion-free tests in changed files |
 | `contracts.mjs` | Declared contracts exist and each consumes edge has a contract test |
 
