@@ -4,6 +4,7 @@ setup:
   mise:
     rust: { version: "1.99.0", components: "rustfmt,clippy,llvm-tools" }
     "github:taiki-e/cargo-llvm-cov": "0.9.1"
+    "github:sourcefrog/cargo-mutants": "27.1.0"
 targets:
   lint:
     command: cargo fmt --check && cargo clippy --all-targets -- -D warnings
@@ -23,3 +24,9 @@ targets:
     command: mkdir -p dist && tar -czf "dist/{name}-${FACTORY_VERSION:-0.0.0}.tar.gz" -C target/release {name}
     dependsOn: [build]
     outputs: ["{projectRoot}/dist/{name}-*.tar.gz"]
+  # Mutation testing with cargo-mutants, converted to the factory's
+  # mutation/report.json.
+  mutation:
+    command: cargo mutants --no-shuffle; node {toolchainDir}/mutants-report.mjs
+    inputs: ["{projectRoot}/src/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
+    outputs: ["{projectRoot}/mutation"]

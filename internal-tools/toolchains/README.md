@@ -51,5 +51,7 @@ merges.
 A toolchain may also define a `mutation` target that writes
 `mutation/report.json` (files with their mutations, each KILLED or LIVED).
 The factory uses it for the mutation score from risk tier R2 up and in the
-nightly run. Go has it, through gremlins; other languages can add it in
-their own folder.
+nightly run. Go uses gremlins, TypeScript Stryker, Python mutmut and Rust
+cargo-mutants; a small converter in each toolchain folder writes the common
+report. `{toolchainDir}` in a command is the toolchain folder, relative to
+the project.

@@ -35,7 +35,7 @@ function boundaryOf(root) {
 
 function fill(value, vars) {
   if (typeof value === 'string') {
-    return value.replace(/\{(name|projectRoot)\}/g, (_, key) => vars[key]);
+    return value.replace(/\{(name|projectRoot|toolchainDir)\}/g, (_, key) => vars[key] ?? `{${key}}`);
   }
   if (Array.isArray(value)) return value.map((v) => fill(v, vars));
   return value;
@@ -87,7 +87,8 @@ function projectFor(file, service, toolchains) {
       throw new Error(`${file}: unknown toolchain "${tc}". Known: ${Object.keys(toolchains).join(', ') || 'none'}`);
     }
     for (const [targetName, spec] of Object.entries(def.targets || {})) {
-      const next = toTarget(spec, vars);
+      // {toolchainDir}: the toolchain's folder, relative to the project, for helper scripts.
+      const next = toTarget(spec, { ...vars, toolchainDir: path.relative(root, path.join('internal-tools/toolchains', tc)) });
       targets[targetName] = targets[targetName] ? combine(targets[targetName], next, targetName) : next;
     }
   }
