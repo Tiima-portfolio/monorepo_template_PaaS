@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { digest, linkToMain, sign } from '../collect.mjs';
+import { digest, indexSql, linkToMain, sign } from '../collect.mjs';
 
 const head = 'a'.repeat(40);
 const rec = { check: 'unit-tests', status: 'pass', sha: head };
@@ -30,4 +30,11 @@ test('altered records, blocked decisions and wrong commits are caught', () => {
 test('signatures depend on the key and the content', () => {
   assert.notEqual(sign({ a: 1 }, 'k1'), sign({ a: 1 }, 'k2'));
   assert.equal(sign({ a: 1 }, 'k1'), sign({ a: 1 }, 'k1'));
+});
+
+test('index rows for each check and the decision, safely quoted', () => {
+  const body = { main: { sha: 'm1' }, pr: 7, pr_head: 'h', tree_match: true, problems: [], pr_bundle: { tier: 'R1', decision: { allowed: true, blocking: [] }, records: [{ check: 'unit-tests', status: 'pass', details: "it's fine" }] } };
+  const sql = indexSql(body, 'org/repo', 's3://b/x.json');
+  assert.match(sql, /'unit-tests', 'pass', 'it''s fine', 'R1', true, 's3:\/\/b\/x.json'/);
+  assert.match(sql, /'admission', 'allowed'/);
 });

@@ -26,3 +26,16 @@ export function linkToMain(bundle, main, prHead) {
 export function sign(body, key) {
   return crypto.createHmac('sha256', key).update(JSON.stringify(body)).digest('hex');
 }
+
+const lit = (v) => (v === null || v === undefined ? 'NULL' : typeof v === 'boolean' || typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
+
+// SQL for the evidence index (platform/evidence/schema.sql): a row per check
+// in the PR's bundle and one for the decision.
+export function indexSql(body, repo, bundleUri) {
+  const rows = [];
+  const b = body.pr_bundle;
+  for (const r of b?.records || []) rows.push([r.check, r.status, r.details]);
+  rows.push(['admission', b?.decision?.allowed ? 'allowed' : 'blocked', (b?.decision?.blocking || []).join(', ') || body.problems.join('; ')]);
+  const values = rows.map(([check, status, details]) => `(${[repo, body.main.sha, body.pr, body.pr_head, check, status, details, b?.tier ?? null, body.tree_match, bundleUri].map(lit).join(', ')})`);
+  return `INSERT INTO evidence (repo, main_sha, pr, pr_head, check_name, status, details, tier, tree_match, bundle_uri) VALUES\n${values.join(',\n')}\nON CONFLICT (repo, main_sha, check_name) DO NOTHING;\n`;
+}
