@@ -10,7 +10,11 @@ const path = require('node:path');
 const YAML = require('yaml');
 
 const TOOLCHAINS_DIR = __dirname;
-const SERVICE_GLOB = '{product,internal-services,internal-tools}/**/service.yaml';
+// service.yaml declares a project; each toolchain.yaml is a project too, so
+// services can depend on the toolchains they use.
+const GLOB = '**/{service,toolchain}.yaml';
+const isService = (f) => /^(product|internal-services|internal-tools)\/.+\/service\.yaml$/.test(f);
+const isToolchain = (f) => /^internal-tools\/toolchains\/[^/]+\/toolchain\.yaml$/.test(f);
 
 function loadToolchains() {
   const toolchains = {};
@@ -87,7 +91,8 @@ function projectFor(file, service, toolchains) {
       targets[targetName] = targets[targetName] ? combine(targets[targetName], next, targetName) : next;
     }
   }
-  const deps = [...(service.dependsOn || []), ...(service.consumes || [])];
+  // A toolchain change re-tests and rebuilds the services that use it.
+  const deps = [...(service.dependsOn || []), ...(service.consumes || []), ...used.map((tc) => `toolchain-${tc}`)];
   return {
     root,
     name,
@@ -102,11 +107,20 @@ function projectFor(file, service, toolchains) {
   };
 }
 
+function toolchainProject(file) {
+  const root = path.dirname(file);
+  return { root, name: `toolchain-${path.basename(root)}`, projectType: 'library', tags: ['boundary:internal-tools', 'build-tool'], targets: {} };
+}
+
 const createNodes = [
-  SERVICE_GLOB,
+  GLOB,
   (files, _options, context) => {
     const toolchains = loadToolchains();
-    return files.map((file) => {
+    return files.filter((f) => isService(f) || isToolchain(f)).map((file) => {
+      if (isToolchain(file)) {
+        const project = toolchainProject(file);
+        return [file, { projects: { [project.root]: project } }];
+      }
       const text = fs.readFileSync(path.join(context.workspaceRoot, file), 'utf8');
       const project = projectFor(file, YAML.parse(text) || {}, toolchains);
       return [file, { projects: { [project.root]: project } }];

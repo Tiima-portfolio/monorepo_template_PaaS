@@ -22,7 +22,7 @@ test('a service gets targets from its toolchains', () => {
   const p = projectFor('product/services/orders/service.yaml', { name: 'orders', toolchains: ['typescript'], criticality: 'critical', consumes: ['billing'] }, loadToolchains());
   assert.equal(p.root, 'product/services/orders');
   assert.equal(p.targets.test.options.cwd, 'product/services/orders');
-  assert.deepEqual(p.implicitDependencies, ['billing']);
+  assert.deepEqual(p.implicitDependencies, ['billing', 'toolchain-typescript']);
   assert.ok(p.tags.includes('boundary:product'));
   assert.ok(p.tags.includes('criticality:critical'));
 });

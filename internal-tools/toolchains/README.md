@@ -36,9 +36,14 @@ toolchain's `template/`, a `service.yaml` and a `guardrails.yaml` with defaults.
 | typescript | `tsc --noEmit` | `node --test` | `tsc` | `npm pack` |
 | go | `gofmt -l`, `go vet` | `go test` | static binary | `.tar.gz` |
 | python | `ruff check`, `ruff format --check` | `pytest` via `uv` | wheel via `uv build` | wheel |
-| rust | `cargo fmt --check`, `cargo clippy` | `cargo test` | release binary | `.tar.gz` |
+| rust | `cargo fmt --check`, `cargo clippy` | `cargo llvm-cov` (tests with coverage) | release binary | `.tar.gz` |
 | container | `hadolint` | `docker run` or `container-test.sh` | image via `docker buildx` | image archive, pushed to the registry on release |
 
 When a project lists more than one toolchain, targets with the same name run
 in the order listed. `toolchains: [go, container]` builds the Go binary and
 then the image that copies it.
+
+Each toolchain folder is also an Nx project, `toolchain-<name>`, and every
+service depends on the toolchains it lists. A change to the Go toolchain
+therefore re-tests every Go service, and they get a patch release when it
+merges.
