@@ -1,0 +1,51 @@
+# Risk tier of a PR, R0 (lowest) to R3 (highest).
+# The base tier is the highest tier any changed file maps to; files that match
+# no rule are R1. Then the rules under `at_least` and `raise` apply.
+
+paths:
+  R3:
+    - "ci/**"
+    - ".github/**"
+    - "platform/**"
+    - "internal-tools/toolchains/**"
+    - nx.json
+    - package.json
+    - package-lock.json
+    - "**/migrations/**"
+    - "**/auth/**"
+  R2:
+    - "product/libraries/**"
+    - "test-framework/**"
+    - "**/api/**"
+    - "**/contract/**"
+    - "**/schema/**"
+    - "**/*.proto"
+    - "**/openapi*.yaml"
+  R0:
+    - "docs/**"
+    - "**/*.md"
+    - LICENSE
+
+# Test-only changes are never R0: they run at least the changed project's tests.
+test_paths:
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/*_test.go"
+  - "**/test_*.py"
+  - "**/tests/**"
+  - "**/__tests__/**"
+
+at_least:
+  R2:
+    affected_projects_over: 10      # a wide blast radius
+    criticality: [critical]          # any affected project with this criticality
+  R3:
+    boundary_override: true
+    major_bump: true                 # PR title with "!" or BREAKING CHANGE
+
+# Each of these raises the tier by one, up to R3.
+raise:
+  - protected_path        # an owner's protected path in guardrails.yaml
+  - weak_test_history     # service below its test-adequacy threshold
+  - agent_above_trust     # agent PR above the tier its trust level allows alone
+  - owning_teams_over_3   # PR needs approval from more than three owning teams

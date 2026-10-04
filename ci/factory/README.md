@@ -6,6 +6,8 @@ Policy lives in [`ci/policy/`](../policy/); the code here only applies it.
 | Module | Checks |
 | --- | --- |
 | `boundary.mjs` | The PR stays inside one boundary from `boundaries.yaml` |
+| `risk.mjs` | Sets the risk tier R0 to R3 from `risk.yaml` |
+| `evidence.mjs` | Lists the evidence a tier requires, from `evidence.yaml` |
 
 Run the tests:
 
