@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import YAML from 'yaml';
-import { addedLines, diffCoverage, parseGoCover, parseLcov } from './coverage.mjs';
+import { addedLines, diffCoverage, parseGoCover, parseLcov, ratchet, totalCoverage } from './coverage.mjs';
 import { matchesAny } from './lib/glob.mjs';
 import { loadPolicy } from './lib/policy.mjs';
 
@@ -18,6 +18,7 @@ const testPaths = loadPolicy('risk').test_paths;
 const floors = loadPolicy('test-adequacy').diff_coverage;
 
 const results = [];
+const totals = {};
 for (const name of gate.affected || []) {
   const project = JSON.parse(run('npx', ['nx', 'show', 'project', name, '--json']));
   const root = project.root;
@@ -29,6 +30,8 @@ for (const name of gate.affected || []) {
     coverage = parseGoCover(fs.readFileSync(path.join(root, 'coverage/cover.out'), 'utf8'), module);
   }
   if (!coverage) continue;
+  const total = totalCoverage(coverage);
+  if (total !== null) totals[name] = total;
   const diff = run('git', ['diff', '-U0', `${env.FACTORY_BASE}...${env.FACTORY_HEAD}`, '--', root]);
   const added = new Map();
   for (const [file, lines] of addedLines(diff)) {
@@ -52,3 +55,14 @@ const details = results.length
   : 'no changed executable lines with coverage';
 fs.writeFileSync(path.join(out, 'diff-coverage.json'), JSON.stringify({ check: 'diff-coverage', status, sha: env.FACTORY_SHA, details }, null, 2));
 console.log(`diff-coverage: ${status} (${details})`);
+
+// Coverage per project, for the ratchet and for main's metrics.
+fs.writeFileSync(path.join(env.FACTORY_OUT || 'factory-out', 'coverage-totals.json'), JSON.stringify(totals));
+const previous = env.FACTORY_METRICS_FILE && fs.existsSync(env.FACTORY_METRICS_FILE) ? JSON.parse(fs.readFileSync(env.FACTORY_METRICS_FILE, 'utf8')) : {};
+const drops = ratchet(totals, previous);
+const ratchetStatus = !Object.keys(totals).length ? 'skipped' : drops.length ? 'fail' : 'pass';
+const ratchetDetails = drops.length
+  ? drops.map((d) => `${d.name} coverage ${d.now}% is below main's ${d.before}%`).join('; ')
+  : Object.keys(totals).length ? Object.entries(totals).map(([n, p]) => `${n} ${p}%${previous[n] ? ` (main ${previous[n].coverage}%)` : ''}`).join(', ') : 'no coverage measured';
+fs.writeFileSync(path.join(out, 'coverage-ratchet.json'), JSON.stringify({ check: 'coverage-ratchet', status: ratchetStatus, sha: env.FACTORY_SHA, details: ratchetDetails }, null, 2));
+console.log(`coverage-ratchet: ${ratchetStatus} (${ratchetDetails})`);
