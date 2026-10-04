@@ -22,6 +22,7 @@ import { route } from './owners.mjs';
 import { activeQuarantine } from './flaky.mjs';
 import { checkDependencies } from './deps.mjs';
 import { lintTestFile } from './test-quality.mjs';
+import { contractProblems } from './contracts.mjs';
 
 const env = process.env;
 const out = env.FACTORY_OUT || 'factory-out';
@@ -127,6 +128,20 @@ record('provenance', provenance.ok, provenance.message);
 {
   const problems = files.filter((f) => fs.existsSync(f)).flatMap((f) => lintTestFile(f, fs.readFileSync(f, 'utf8')));
   record('test-quality', problems.length === 0, problems.length ? problems.join('; ') : 'no skipped or assertion-free tests in changed files');
+}
+if (aff.nodes) {
+  // Contract coverage for the affected projects that are services.
+  const services = aff.names
+    .map((n) => aff.nodes[n]?.data?.root)
+    .filter((root) => root && fs.existsSync(path.join(root, 'service.yaml')))
+    .map((root) => ({
+      name: path.basename(root),
+      root,
+      service: YAML.parse(fs.readFileSync(path.join(root, 'service.yaml'), 'utf8')) || {},
+      files: lines(git('ls-files', '--', root)).map((f) => f.slice(root.length + 1)),
+    }));
+  const problems = contractProblems(services);
+  record('contract-tests', problems.length === 0, problems.length ? problems.join('; ') : services.length ? 'declared contracts exist and every consumes edge has a contract test' : 'no affected services');
 }
 if (aff.graph) {
   const problems = checkDependencies(aff.graph);

@@ -14,7 +14,7 @@ evidence:
   dependency-rules:     { mode: shadow,  about: "Dependency directions and no cycles" }
   diff-coverage:        { mode: shadow,  about: "Changed lines covered by unit tests" }
   test-quality:         { mode: shadow,  about: "No skipped or assertion-free tests in changed files" }
-  contract-tests:       { mode: shadow,  about: "Contract and consumer contract tests" }
+  contract-tests:       { mode: shadow,  about: "Declared contracts exist; each consumes edge has a contract test in contracts/<provider>/" }
   integration-selected: { mode: shadow,  about: "Selected integration tests" }
   mutation-score:       { mode: shadow,  about: "Mutation score on the diff" }
   integration-broad:    { mode: shadow,  about: "Broad integration tests" }
