@@ -117,7 +117,7 @@ for (const tc of aff.toolchains) {
 fs.writeFileSync(path.join(out, 'mise.toml'), miseToml(tools));
 
 const gate = {
-  sha, base, head, event: eventName, tier: risk.tier, reasons: risk.reasons, boundary: boundary.boundary,
+  sha, tree: git('rev-parse', `${head}^{tree}`), base, head, event: eventName, tier: risk.tier, reasons: risk.reasons, boundary: boundary.boundary,
   override: !!boundary.override, needsHuman: provenance.needsHuman, affected: aff.names,
   toolchains: aff.toolchains, files: files.length, required,
 };
