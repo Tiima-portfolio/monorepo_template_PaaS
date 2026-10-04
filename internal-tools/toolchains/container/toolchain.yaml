@@ -18,5 +18,7 @@ targets:
     dependsOn: [build]
     cache: false
   package:
-    command: mkdir -p dist && docker buildx build --output type=oci,dest=dist/{name}-image.tar .
+    # A docker save archive works with the default docker driver; the OCI
+    # exporter needs a separate BuildKit container builder.
+    command: mkdir -p dist && docker buildx build --output type=docker,dest=dist/{name}-image.tar -t "{name}:${FACTORY_VERSION:-0.0.0}" .
     cache: false
