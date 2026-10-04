@@ -1,0 +1,177 @@
+# The factory: one pipeline for every PR and every merge queue group, from
+# humans and agents alike. The only required check is "factory/admission".
+name: factory
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  cancel-in-progress: true
+
+env:
+  NX_DAEMON: "false"
+  NX_NO_CLOUD: "true"
+  FACTORY_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+  FACTORY_HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  FACTORY_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  FACTORY_OUT: factory-out
+
+jobs:
+  gate:
+    name: factory/gate
+    # Runner pools are set per repository; GitHub-hosted runners by default.
+    runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      tier: ${{ steps.gate.outputs.tier }}
+      affected: ${{ steps.gate.outputs.affected }}
+      has_tools: ${{ steps.gate.outputs.has_tools }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.FACTORY_HEAD }}
+          fetch-depth: 0
+      # The gate's code and policy come from the base branch, so a PR is
+      # always judged by the rules already on main, never by its own changes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.FACTORY_BASE }}
+          path: .factory
+          sparse-checkout: ci
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Use gate code from the base branch
+        run: |
+          if [ -f .factory/ci/factory/gate-cli.mjs ]; then
+            echo "FACTORY_CODE=.factory/ci" >> "$GITHUB_ENV"
+          else
+            echo "::warning::The base branch has no gate yet; using this PR's gate code (bootstrap only)."
+            echo "FACTORY_CODE=ci" >> "$GITHUB_ENV"
+          fi
+      - name: Check who added the override label
+        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'boundary-override')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          actor=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/events" --paginate \
+            --jq '[.[] | select(.event == "labeled" and .label.name == "boundary-override")] | last | .actor.login')
+          perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$actor/permission" --jq .permission)
+          echo "Override label added by $actor ($perm)"
+          # Factory owners: repository admins here; an org uses the team in boundaries.yaml.
+          [ "$perm" = "admin" ] && echo "FACTORY_OVERRIDE_OK=true" >> "$GITHUB_ENV" || true
+      - name: Gate
+        id: gate
+        run: FACTORY_POLICY_DIR="$FACTORY_CODE/policy" node "$FACTORY_CODE/factory/gate-cli.mjs"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: factory-gate
+          path: factory-out
+          retention-days: 7
+
+  verify:
+    name: factory/verify
+    needs: gate
+    if: needs.gate.outputs.affected != '0'
+    runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
+    env:
+      FACTORY_AFFECTED: ${{ needs.gate.outputs.affected }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.FACTORY_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: factory-gate
+          path: gate
+      # Toolchain versions come from each affected toolchain's toolchain.yaml.
+      - name: Toolchain setup file
+        if: needs.gate.outputs.has_tools == 'true'
+        run: cp gate/mise.toml mise.local.toml
+      - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
+        if: needs.gate.outputs.has_tools == 'true'
+      - name: Lint
+        run: |
+          set +e
+          npx nx affected -t lint --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
+          code=$?
+          node ci/factory/verify-record.mjs format-lint "$code" "nx affected -t lint"
+      - name: Build
+        run: |
+          set +e
+          npx nx affected -t build --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
+          code=$?
+          node ci/factory/verify-record.mjs build "$code" "nx affected -t build"
+      - name: Unit tests
+        run: |
+          set +e
+          npx nx affected -t test --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
+          code=$?
+          node ci/factory/verify-record.mjs unit-tests "$code" "nx affected -t test"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: factory-verify
+          path: factory-out
+          retention-days: 7
+
+  admission:
+    name: factory/admission
+    needs: [gate, verify]
+    if: always()
+    runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.FACTORY_BASE }}
+          sparse-checkout: ci
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: hashFiles('ci/factory/admission-cli.mjs') == ''
+        with:
+          ref: ${{ env.FACTORY_HEAD }}
+          sparse-checkout: ci
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: factory-*
+          path: factory-in
+      - name: Admission
+        run: FACTORY_IN=factory-in FACTORY_OUT=. node ci/factory/admission-cli.mjs
+      - name: Post the decision on the PR
+        if: always() && github.event_name == 'pull_request' && hashFiles('admission.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- factory-admission -->'
+          body="$marker"$'\n'"$(cat admission.md)"
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
+          fi
