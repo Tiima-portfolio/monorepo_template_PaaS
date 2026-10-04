@@ -1,4 +1,5 @@
 {
+  "_optional": "GitHub lets the GitHub Actions app bypass rulesets only in organization-owned repositories; without that bypass the release job could not create tags",
   "name": "release-tags",
   "target": "tag",
   "enforcement": "active",
