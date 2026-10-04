@@ -1,6 +1,10 @@
 # Guardrails set by team-catalog. They can only be stricter than ci/policy/.
 protected_paths: []
-required_checks: []
+required_checks:
+  # Catalog's listing is what its consumers rely on, so any source change must
+  # also survive mutation testing.
+  - target: mutation
+    when: ["src/**"]
 thresholds: {}
 agents:
   max_autonomous_tier: R1
