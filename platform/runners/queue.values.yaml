@@ -1,0 +1,23 @@
+# Actions Runner Controller scale set: Merge queue jobs: read-only cache, no secrets, never scales to zero.
+# helm install factory-queue oci://<internal-registry>/actions-runner-controller-charts/gha-runner-scale-set -f queue.values.yaml
+githubConfigUrl: https://github.com/<owner>/<repo>
+githubConfigSecret: factory-runner-github-app
+runnerScaleSetName: factory-queue
+minRunners: 4
+maxRunners: 50
+template:
+  spec:
+    containers:
+      - name: runner
+        # Runner image from the internal registry, with Node, mise and the
+        # toolchains' tools baked in, so jobs don't download them.
+        image: <internal-registry>/factory/runner:<version>
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: NX_SELF_HOSTED_REMOTE_CACHE_SERVER
+            value: https://nx-cache.<internal-domain>
+          - name: NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: factory-nx-cache
+                key: read-only-token
