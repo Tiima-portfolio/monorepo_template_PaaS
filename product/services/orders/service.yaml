@@ -1,0 +1,6 @@
+name: orders
+owner: team-orders
+toolchains: [go]
+criticality: normal
+consumes: [catalog]
+contract: [api/openapi.yaml]

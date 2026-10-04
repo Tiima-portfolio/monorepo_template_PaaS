@@ -1,0 +1,6 @@
+name: catalog
+owner: team-catalog
+toolchains: [typescript]
+criticality: normal
+consumes: []
+contract: [src/index.ts]
