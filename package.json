@@ -1,0 +1,16 @@
+{
+  "name": "monorepo-template-paas",
+  "private": true,
+  "description": "Evidence-driven CI/CD skeleton for a many-service monorepo",
+  "scripts": {
+    "check": "nx affected -t lint test build",
+    "graph": "nx graph"
+  },
+  "devDependencies": {
+    "nx": "23.2.1",
+    "yaml": "^2.8.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
