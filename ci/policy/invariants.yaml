@@ -10,5 +10,10 @@ dependencies:
   platform:           [internal-tools]
   test-framework:     [test-framework]
 
+# Build tools: any project may depend on these at build time (each service
+# depends on the toolchains it lists), so a toolchain change re-tests and
+# rebuilds the services that use it. They never ship inside an artifact.
+build_tools: ["toolchain-*"]
+
 # Service-to-service dependencies must stay acyclic.
 no_cycles: [product, internal-services, internal-tools]

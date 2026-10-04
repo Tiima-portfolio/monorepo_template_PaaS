@@ -1,5 +1,6 @@
 // Dependency rules on the Nx project graph, from ci/policy/invariants.yaml.
 import { loadPolicy } from './lib/policy.mjs';
+import { matchesAny } from './lib/glob.mjs';
 
 const area = (root) => root.split('/')[0];
 
@@ -12,6 +13,7 @@ export function checkDependencies(graph, policy = loadPolicy('invariants')) {
     const from = area(root(source));
     for (const { target, type } of edges) {
       if (!root(target)) continue; // external packages
+      if (matchesAny(target, policy.build_tools || [])) continue;
       const to = area(root(target));
       const allowed = policy.dependencies[from] || [];
       if (!allowed.includes(to)) problems.push(`${source} (${from}) may not depend on ${target} (${to})`);
