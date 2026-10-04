@@ -6,27 +6,31 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   merge_group:
+  # The post-merge check: main is verified again, since without a merge queue
+  # the squash commit can differ from what the PR verified.
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: factory-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  group: factory-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.sha }}
   cancel-in-progress: true
 
 env:
   NX_DAEMON: "false"
   NX_NO_CLOUD: "true"
-  FACTORY_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-  FACTORY_HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-  FACTORY_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  FACTORY_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+  FACTORY_HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+  FACTORY_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
   FACTORY_OUT: factory-out
 
 jobs:
   gate:
     name: factory/gate
     # Runner pools are set per repository; GitHub-hosted runners by default.
-    runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
+    runs-on: ${{ github.event_name == 'push' && (vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest') || github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
     permissions:
       contents: read
       issues: read
@@ -94,7 +98,7 @@ jobs:
     permissions:
       contents: read
       issues: read
-    runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
+    runs-on: ${{ github.event_name == 'push' && (vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest') || github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
     env:
       FACTORY_AFFECTED: ${{ needs.gate.outputs.affected }}
     steps:
@@ -167,7 +171,7 @@ jobs:
     name: factory/admission
     needs: [gate, verify]
     if: always()
-    runs-on: ${{ github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
+    runs-on: ${{ github.event_name == 'push' && (vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest') || github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
     permissions:
       actions: read
       contents: read
@@ -247,3 +251,39 @@ jobs:
           else
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
           fi
+
+  # A red main is reverted, not left for everyone to investigate: the factory
+  # opens a P0 revert PR of the commit that failed the post-merge check.
+  revert:
+    name: factory/revert
+    needs: admission
+    if: failure() && github.event_name == 'push'
+    runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FACTORY_RELEASE_TOKEN || github.token }}
+      - name: Open a revert PR
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_RELEASE_TOKEN || github.token }}
+          HAS_APP_TOKEN: ${{ secrets.FACTORY_RELEASE_TOKEN != '' }}
+        run: |
+          title=$(git log -1 --format=%s "$GITHUB_SHA")
+          branch="revert/${GITHUB_SHA::12}"
+          git config user.name "factory-revert"
+          git config user.email "factory-revert@users.noreply.github.com"
+          git switch -c "$branch"
+          git revert --no-edit "$GITHUB_SHA"
+          git push origin "$branch"
+          note=""
+          if [ "$HAS_APP_TOKEN" != "true" ]; then
+            note=$'\n\nOpened with GITHUB_TOKEN, so the factory doesn\'t run on it automatically: close and reopen this PR to start it, or set the FACTORY_RELEASE_TOKEN secret.'
+          fi
+          gh pr create --base main --head "$branch" --label P0 \
+            --title "revert: $title" \
+            --body "main failed the post-merge check on $GITHUB_SHA ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). This pure revert takes the P0 lane.$note"
