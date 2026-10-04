@@ -1,0 +1,21 @@
+# Rust. In the air-gapped network, a Cargo source replacement in
+# .cargo/config.toml points at the internal crate mirror.
+setup:
+  mise:
+    rust: "1.99.0"
+targets:
+  lint:
+    command: cargo fmt --check && cargo clippy --all-targets -- -D warnings
+    inputs: ["{projectRoot}/src/**/*", "{projectRoot}/tests/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
+  test:
+    command: cargo test
+    inputs: ["{projectRoot}/src/**/*", "{projectRoot}/tests/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
+  build:
+    command: cargo build --release
+    dependsOn: ["^build"]
+    inputs: ["{projectRoot}/src/**/*", "{projectRoot}/Cargo.toml", "{projectRoot}/Cargo.lock"]
+    outputs: ["{projectRoot}/target/release/{name}"]
+  package:
+    command: mkdir -p dist && tar -czf dist/{name}.tar.gz -C target/release {name}
+    dependsOn: [build]
+    outputs: ["{projectRoot}/dist/{name}.tar.gz"]
