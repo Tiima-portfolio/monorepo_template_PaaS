@@ -290,15 +290,26 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    env:
+      HAS_APP: ${{ secrets.FACTORY_APP_PRIVATE_KEY != '' }}
     steps:
+      # A short-lived token for the factory GitHub App, minted from the
+      # FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets. Without them the
+      # job falls back to GITHUB_TOKEN.
+      - id: app
+        if: env.HAS_APP == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.FACTORY_APP_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          token: ${{ secrets.FACTORY_RELEASE_TOKEN || github.token }}
+          token: ${{ steps.app.outputs.token || github.token }}
       - name: Open a revert PR
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_RELEASE_TOKEN || github.token }}
-          HAS_APP_TOKEN: ${{ secrets.FACTORY_RELEASE_TOKEN != '' }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          HAS_APP_TOKEN: ${{ env.HAS_APP }}
         run: |
           title=$(git log -1 --format=%s "$GITHUB_SHA")
           branch="revert/${GITHUB_SHA::12}"
@@ -309,7 +320,7 @@ jobs:
           git push origin "$branch"
           note=""
           if [ "$HAS_APP_TOKEN" != "true" ]; then
-            note=$'\n\nOpened with GITHUB_TOKEN, so the factory doesn\'t run on it automatically: close and reopen this PR to start it, or set the FACTORY_RELEASE_TOKEN secret.'
+            note=$'\n\nOpened with GITHUB_TOKEN, so the factory doesn\'t run on it automatically: close and reopen this PR to start it, or set the FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets.'
           fi
           revert=$(gh pr create --base main --head "$branch" --label P0 \
             --title "revert: $title" \

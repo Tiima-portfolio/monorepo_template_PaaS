@@ -25,7 +25,18 @@ jobs:
   release:
     name: factory/release
     runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    env:
+      HAS_APP: ${{ secrets.FACTORY_APP_PRIVATE_KEY != '' }}
     steps:
+      # A short-lived token for the factory GitHub App, minted from the
+      # FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets. Without them the
+      # job falls back to GITHUB_TOKEN.
+      - id: app
+        if: env.HAS_APP == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.FACTORY_APP_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -47,9 +58,11 @@ jobs:
           driver-opts: ${{ vars.FACTORY_BUILDKIT_IMAGE && format('image={0}', vars.FACTORY_BUILDKIT_IMAGE) || '' }}
       - name: Release
         env:
-          # A GitHub App token with contents and workflows write can release
-          # older commits after workflow files changed; GITHUB_TOKEN can't.
-          GH_TOKEN: ${{ secrets.FACTORY_RELEASE_TOKEN || github.token }}
+          # The App token (contents and workflows write) can release older
+          # commits after workflow files changed; GITHUB_TOKEN can't.
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          # Images go to GHCR with the workflow's own token.
+          FACTORY_REGISTRY_TOKEN: ${{ github.token }}
         run: |
           git config user.name "factory-release"
           git config user.email "factory-release@users.noreply.github.com"
