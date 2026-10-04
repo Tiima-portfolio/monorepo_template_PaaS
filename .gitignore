@@ -8,3 +8,8 @@ __pycache__/
 coverage/
 .DS_Store
 mise.local.toml
+mutation/
+.stryker-tmp/
+mutants/
+mutants.out/
+mutants.out.old/
