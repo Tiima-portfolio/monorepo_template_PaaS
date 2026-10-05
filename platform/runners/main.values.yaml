@@ -6,6 +6,10 @@ runnerScaleSetName: factory-main
 minRunners: 1
 maxRunners: 20
 template:
+  metadata:
+    labels:
+      # The BuildKit service's NetworkPolicy admits runners by this label.
+      factory.dev/runner-pool: main
   spec:
     containers:
       - name: runner
@@ -21,3 +25,23 @@ template:
               secretKeyRef:
                 name: factory-nx-cache
                 key: read-write-token
+          # The shared BuildKit service, main instance (internal-services/buildkit).
+          # Remove these to build with the runner's local BuildKit.
+          - name: FACTORY_BUILDKIT_ADDR
+            value: tcp://buildkit.buildkit-main.svc:1234
+          - name: FACTORY_BUILDKIT_TLS_DIR
+            value: /buildkit-tls
+          - name: FACTORY_BUILDKIT_CACHE_REF
+            value: <internal-registry>/factory/buildkit-cache
+          - name: FACTORY_BUILDKIT_CACHE_WRITE
+            value: "true"
+        volumeMounts:
+          - name: buildkit-tls
+            mountPath: /buildkit-tls
+            readOnly: true
+    volumes:
+      # A copy of the buildkit-client-certs Secret from the buildkit-main
+      # namespace (ca.crt, tls.crt, tls.key), synced into the runner namespace.
+      - name: buildkit-tls
+        secret:
+          secretName: buildkit-main-client-certs

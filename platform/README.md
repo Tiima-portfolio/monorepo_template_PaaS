@@ -10,6 +10,7 @@ automatically; the CI/platform team applies it with its own tooling.
 | Nx remote cache | [`cache/`](cache/) | `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` and its access tokens |
 | Write-once evidence bucket | [`evidence/`](evidence/) | The evidence collector (issue #21) |
 | Package and image mirrors | [`mirror/`](mirror/) | Toolchains, through standard environment variables |
+| Shared BuildKit service | [`internal-services/buildkit/deploy/`](../internal-services/buildkit/deploy/) | `FACTORY_BUILDKIT_*` on the runner pods, read by the container toolchain |
 
 ## Trust boundaries
 
@@ -17,6 +18,9 @@ automatically; the CI/platform team applies it with its own tooling.
   may have changed, so they can only read the cache and can't publish.
 - **Only `main` runners write.** They build commits already admitted to
   `main`: cache writes, image pushes and releases happen there.
+- **PR code never reaches the main BuildKit.** The `pr` and `queue` pools use
+  the `buildkit-pr` instance; only the `main` pool reaches `buildkit-main`,
+  and only it writes the registry layer cache.
 - **Every job gets a fresh runner.** Runners are ephemeral and never reused.
 
 ## Evidence index
