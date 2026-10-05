@@ -1,0 +1,20 @@
+# buildkit-main: builds for the main runner pool only, which builds commits
+# already admitted to main and releases them. Its runners also write the
+# registry layer cache.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: buildkit-main
+resources:
+  - namespace.yaml
+  - ../../base
+patches:
+  - target: { kind: NetworkPolicy, name: buildkit }
+    patch: |
+      - op: replace
+        path: /spec/ingress/0/from/0/podSelector/matchLabels/factory.dev~1runner-pool
+        value: main
+  - target: { kind: Certificate, name: buildkit-daemon }
+    patch: |
+      - op: replace
+        path: /spec/dnsNames
+        value: [buildkit, buildkit.buildkit-main.svc, buildkit.buildkit-main.svc.cluster.local]

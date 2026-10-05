@@ -1,0 +1,72 @@
+# Rootless buildkitd, after BuildKit's examples/kubernetes. Builds run as
+# UID 1000 in the daemon's own user namespace.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buildkit
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: buildkit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: buildkit
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: buildkitd
+          image: buildkit
+          args:
+            - --addr
+            - unix:///run/user/1000/buildkit/buildkitd.sock
+            - --addr
+            - tcp://0.0.0.0:1234
+            - --tlscacert
+            - /certs/ca.crt
+            - --tlscert
+            - /certs/tls.crt
+            - --tlskey
+            - /certs/tls.key
+            # Kubernetes has no equivalent of systempaths=unconfined. Build
+            # steps can then signal the daemon's processes, which is why PR
+            # builds and main builds never share an instance.
+            - --oci-worker-no-process-sandbox
+          ports:
+            - name: grpc
+              containerPort: 1234
+          readinessProbe:
+            exec:
+              command: [buildctl, debug, workers]
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          livenessProbe:
+            exec:
+              command: [buildctl, debug, workers]
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests: { cpu: "4", memory: 8Gi, ephemeral-storage: 50Gi }
+            limits: { memory: 16Gi, ephemeral-storage: 100Gi }
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: Unconfined
+            appArmorProfile:
+              type: Unconfined
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+            - name: state
+              mountPath: /home/user/.local/share/buildkit
+      volumes:
+        - name: certs
+          secret:
+            secretName: buildkit-daemon-certs
+        # The local layer cache; the registry cache outlives the pod.
+        - name: state
+          emptyDir:
+            sizeLimit: 100Gi
