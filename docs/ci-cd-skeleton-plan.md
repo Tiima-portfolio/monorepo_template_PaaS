@@ -743,7 +743,7 @@ The skeleton assumes no direct internet access from developer machines or CI; Gi
 
 ## Shared BuildKit service
 
-Container images are built by BuildKit. By default each runner uses its own local BuildKit, which is what public GitHub-hosted runners have. At 100 services and 300 agents, an internal BuildKit service gives every build the same pinned BuildKit, a warm layer cache and base images from the internal registry, without a privileged Docker daemon on every runner.
+Container images are built by BuildKit. By default each runner uses its own local BuildKit, which is what public GitHub-hosted runners have. At 100 services and 300 agents, an internal BuildKit service gives every build the same pinned BuildKit, a warm layer cache and base images from the internal registry, and moves the build work off the runners. Runners still need Docker to run each image's smoke test.
 
 The service is `internal-services/buildkit`: a rootless `buildkitd` image released like any other service image, and Kustomize manifests the CI/platform team applies with its own tooling. We deliver it as an artifact plus deployable manifests; the factory never applies them.
 
@@ -763,7 +763,7 @@ flowchart LR
 
 | Step | Boundary | Issue |
 | --- | --- | --- |
-| This section | Docs | #127 |
+| This section | Docs | #127, #136 |
 | Service image and smoke test | Internal service | #128 |
 | Deployable manifests | Internal service | #129 |
 | Container toolchain switches by config | Internal tool | #130 |
