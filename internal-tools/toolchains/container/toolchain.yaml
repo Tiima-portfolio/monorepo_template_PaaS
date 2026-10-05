@@ -11,6 +11,9 @@ setup:
 targets:
   lint:
     command: hadolint Dockerfile
+    # The generic lint image (lint-image/ here), pinned by digest. The other
+    # targets build images, so they use BuildKit on the host.
+    image: ghcr.io/tiima-portfolio/monorepo_template_paas/ci-lint:33adae933966@sha256:c9c6d25f4cae5d69ac8ba74090e16cd4261374166e1f195b32af69b4591fbff9
     inputs: ["{projectRoot}/Dockerfile"]
   build:
     command: node {toolchainDir}/buildx.mjs {name} --load -t {name}:ci .

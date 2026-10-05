@@ -67,3 +67,44 @@ only runners with `FACTORY_BUILDKIT_CACHE_WRITE=true` (main) write.
 Test targets also write per-test reports to `test-results/` (JUnit XML for
 TypeScript and Python, Go's JSON test events), so the factory can quarantine
 a single flaky test instead of a whole project.
+
+## Toolchain images
+
+CI runs each toolchain's targets in a container image built in this folder and
+pinned by digest in its `toolchain.yaml`:
+
+```yaml
+# internal-tools/toolchains/go/toolchain.yaml
+image: ghcr.io/<owner>/<repo>/ci-go:<commit>@sha256:<digest>
+```
+
+A target can name its own image instead (the container toolchain's `lint`
+runs in `ci-lint`), or set `image: false` to stay on the host (its image
+builds use BuildKit on the host).
+
+| Image | Folder | Holds |
+| --- | --- | --- |
+| `ci-lint` | `lint-image/` | hadolint, shellcheck, actionlint, yamllint, markdownlint-cli2, taplo |
+| `ci-typescript` | `typescript/image/` | Node and npm |
+| `ci-go` | `go/image/` | Go, gremlins, Node |
+| `ci-python` | `python/image/` | Python, uv |
+| `ci-rust` | `rust/image/` | Rust with rustfmt, clippy, llvm-tools, cargo-llvm-cov, cargo-mutants, Node |
+
+Each image folder is a `[container]` project with a smoke test that checks the
+tool versions against the toolchain's `setup.mise`, which stays the version
+list for local work. On `main`, the `images` workflow publishes a changed image
+to GHCR and writes its digest to the run summary; moving the pin is a separate
+PR, and it re-tests every service on that toolchain.
+
+`in-image.sh` does the running. With `FACTORY_TOOLCHAIN_IMAGES=true`, as CI
+sets it, a target runs in its image with `docker run`: as your user, with the
+workspace mounted at the same path and a cache directory per image as `HOME`.
+Without it, targets run on the host with the tools `mise` installs. To check a
+change exactly as CI does:
+
+```bash
+FACTORY_TOOLCHAIN_IMAGES=true npx nx affected -t lint test build
+```
+
+For an air-gapped network, mirror the images into the internal registry and set
+`FACTORY_TOOLCHAIN_REGISTRY` to its host; the digests stay the same.
