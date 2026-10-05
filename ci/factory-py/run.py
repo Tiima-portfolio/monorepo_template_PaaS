@@ -11,6 +11,7 @@ import sys
 COMMANDS = [
     "gate", "admission", "verify-record", "test-run", "diff-coverage", "mutation", "regression",
     "release", "queue", "promote", "collect", "rulesets", "metrics", "metrics-report", "mise-all",
+    "shadow",
 ]
 
 if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
