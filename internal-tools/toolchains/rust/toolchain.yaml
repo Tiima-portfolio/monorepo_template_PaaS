@@ -1,5 +1,7 @@
 # Rust. In the air-gapped network, a Cargo source replacement in
 # .cargo/config.toml points at the internal crate mirror.
+# CI runs these targets in this image (image/ here), pinned by digest.
+image: ghcr.io/tiima-portfolio/monorepo_template_paas/ci-rust:405d677825fb@sha256:988b8a0a0eac95928d75e4f9b75f06ac4a728e67b94fee035a3fdda3263a8526
 setup:
   mise:
     rust: { version: "1.99.0", components: "rustfmt,clippy,llvm-tools" }

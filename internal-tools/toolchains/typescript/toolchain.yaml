@@ -1,5 +1,7 @@
 # TypeScript on Node 24, which runs .ts files natively. TypeScript itself is a
 # devDependency of each project, pinned in the project's own lock file.
+# CI runs these targets in this image (image/ here), pinned by digest.
+image: ghcr.io/tiima-portfolio/monorepo_template_paas/ci-typescript:1a40a0829054@sha256:e25601416bc4c7666d0e8f04b7da4ad1105fc1662961967e6374ec01101230ae
 setup:
   mise:
     node: "24"

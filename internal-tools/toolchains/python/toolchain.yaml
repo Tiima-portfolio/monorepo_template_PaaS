@@ -1,5 +1,7 @@
 # Python with uv. In the air-gapped network, UV_INDEX_URL points at the
 # internal package mirror.
+# CI runs these targets in this image (image/ here), pinned by digest.
+image: ghcr.io/tiima-portfolio/monorepo_template_paas/ci-python:8b407835890a@sha256:087baa8591d00196bc1b11aadb0d81ee478cfa22b30f64d2260b64dc03cbb008
 setup:
   mise:
     python: "3.13"

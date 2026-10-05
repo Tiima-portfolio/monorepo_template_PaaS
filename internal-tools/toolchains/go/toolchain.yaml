@@ -1,4 +1,6 @@
 # Go. In the air-gapped network, GOPROXY points at the internal module mirror.
+# CI runs these targets in this image (image/ here), pinned by digest.
+image: ghcr.io/tiima-portfolio/monorepo_template_paas/ci-go:0eab978b742d@sha256:b51bed009c014f692f943add986f0af14caf4347f9efefa35f6d941c079366e1
 setup:
   mise:
     go: "1.25"

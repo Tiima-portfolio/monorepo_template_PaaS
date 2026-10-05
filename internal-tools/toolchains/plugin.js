@@ -41,16 +41,28 @@ function fill(value, vars) {
   return value;
 }
 
+// A target runs in its toolchain's pinned image (`image:` in toolchain.yaml,
+// or the target's own `image:`; `image: false` keeps it on the host).
+// in-image.sh decides at run time: in the image when
+// FACTORY_TOOLCHAIN_IMAGES=true, on the host otherwise.
+const quote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
+function inImage(command, image, projectRoot) {
+  const runner = path.relative(projectRoot, path.join('internal-tools/toolchains', 'in-image.sh'));
+  return `sh ${runner} ${quote(image)} ${quote(command)}`;
+}
+
 // Turns one toolchain target from toolchain.yaml into an Nx target.
-function toTarget(spec, vars) {
+function toTarget(spec, vars, image) {
+  const command = fill(spec.command, vars);
   const target = {
     executor: 'nx:run-commands',
-    options: { command: fill(spec.command, vars), cwd: vars.projectRoot },
+    options: { command: image ? inImage(command, image, vars.projectRoot) : command, cwd: vars.projectRoot },
     cache: spec.cache !== false,
   };
   // Nx resolves {projectRoot} in inputs and outputs itself; only {name} is ours.
   const nameOnly = { name: vars.name, projectRoot: '{projectRoot}' };
-  if (spec.inputs) target.inputs = fill(spec.inputs, nameOnly);
+  // Host and image results are cached apart.
+  if (spec.inputs) target.inputs = [...fill(spec.inputs, nameOnly), ...(image ? [{ env: 'FACTORY_TOOLCHAIN_IMAGES' }] : [])];
   if (spec.outputs) target.outputs = fill(spec.outputs, nameOnly);
   if (spec.dependsOn) target.dependsOn = spec.dependsOn;
   return target;
@@ -59,7 +71,11 @@ function toTarget(spec, vars) {
 // Two toolchains with a target of the same name run in the order listed,
 // for example [go, container]: the Go build, then the image build.
 function combine(first, second, targetName) {
-  const union = (a, b) => (a || b ? [...new Set([...(a || []), ...(b || [])])] : undefined);
+  const union = (a, b) => {
+    if (!a && !b) return undefined;
+    const seen = new Map([...(a || []), ...(b || [])].map((x) => [JSON.stringify(x), x]));
+    return [...seen.values()];
+  };
   const target = {
     ...first,
     options: { ...first.options, command: `${first.options.command} && ${second.options.command}` },
@@ -88,7 +104,8 @@ function projectFor(file, service, toolchains) {
     }
     for (const [targetName, spec] of Object.entries(def.targets || {})) {
       // {toolchainDir}: the toolchain's folder, relative to the project, for helper scripts.
-      const next = toTarget(spec, { ...vars, toolchainDir: path.relative(root, path.join('internal-tools/toolchains', tc)) });
+      const image = spec.image === false ? null : spec.image || def.image || null;
+      const next = toTarget(spec, { ...vars, toolchainDir: path.relative(root, path.join('internal-tools/toolchains', tc)) }, image);
       targets[targetName] = targets[targetName] ? combine(targets[targetName], next, targetName) : next;
     }
   }
