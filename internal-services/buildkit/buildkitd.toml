@@ -1,0 +1,35 @@
+# Daemon settings shared by both instances (buildkit-pr and buildkit-main).
+# Listeners and TLS are set by the deployment's arguments, see deploy/.
+
+[log]
+  format = "json"
+
+# Build history is for debugging a recent build, not an archive: evidence and
+# provenance live in the factory's evidence store.
+[history]
+  maxAge = 86400
+  maxEntries = 200
+
+[worker.oci]
+  enabled = true
+  gc = true
+  # The layer cache lives on the pod's volume; the registry cache outlives it.
+  reservedSpace = "10%"
+  maxUsedSpace = "80%"
+  minFreeSpace = "10GB"
+  # Builds share the daemon; a few heavy ones must not starve the rest.
+  max-parallelism = 8
+
+  # Local build contexts and cache mounts go first, then anything unused for a day.
+  [[worker.oci.gcpolicy]]
+    keepDuration = "6h"
+    filters = ["type==source.local", "type==exec.cachemount", "type==source.git.checkout"]
+  [[worker.oci.gcpolicy]]
+    keepDuration = "24h"
+  [[worker.oci.gcpolicy]]
+    all = true
+    maxUsedSpace = "80%"
+
+# In the air-gapped network, base images come from the internal registry:
+# [registry."docker.io"]
+#   mirrors = ["registry.<internal-domain>"]

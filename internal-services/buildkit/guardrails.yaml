@@ -1,0 +1,10 @@
+# Guardrails set by team-platform. They can only be stricter than ci/policy/.
+# Every container build in the monorepo goes through this service, so a
+# change to its config always needs an owner's approval.
+protected_paths: [buildkitd.toml, Dockerfile]
+required_checks: []
+thresholds: {}
+agents:
+  max_autonomous_tier: R1
+  forbidden_paths: []
+contributors: []
