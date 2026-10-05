@@ -15,4 +15,8 @@ fi
 if printf 'FROM alpine\n' | run hadolint - >/dev/null; then
   echo "hadolint accepted an untagged base image"; exit 1
 fi
+run markdownlint-cli2 --help | grep -q 'markdownlint-cli2 v0\.23\.3' || { echo "markdownlint-cli2 is not 0.23.3"; exit 1; }
+if docker run --rm --user 12345:12345 "$image" sh -c 'cd /tmp && printf "# A\n# A\n" > x.md && markdownlint-cli2 x.md' >/dev/null 2>&1; then
+  echo "markdownlint-cli2 accepted a duplicate heading"; exit 1
+fi
 echo "ci-lint image OK"
