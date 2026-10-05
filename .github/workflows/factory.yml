@@ -59,14 +59,17 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Use gate code from the base branch
         run: |
-          if [ -f .factory/ci/factory/gate-cli.mjs ]; then
-            echo "FACTORY_CODE=.factory/ci" >> "$GITHUB_ENV"
+          if [ -f .factory/ci/factory-py/run.py ]; then
+            code=.factory/ci
           else
             echo "::warning::The base branch has no gate yet; using this PR's gate code (bootstrap only)."
-            echo "FACTORY_CODE=ci" >> "$GITHUB_ENV"
+            code=ci
           fi
+          echo "FACTORY_CODE=$code" >> "$GITHUB_ENV"
+          echo "FACTORY_RUN=uv run --frozen --project $code/factory-py $code/factory-py/run.py" >> "$GITHUB_ENV"
       - name: Check who added the override label
         if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'boundary-override')
         env:
@@ -91,23 +94,7 @@ jobs:
         timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
-        run: FACTORY_QUARANTINE_FILE=quarantine.json FACTORY_POLICY_DIR="$FACTORY_CODE/policy" node "$FACTORY_CODE/factory/gate-cli.mjs"
-      # Shadow run while the factory moves to Python: the Python gate runs on the
-      # same commits and its output is compared with the JS gate's. It never
-      # affects the result; differences show as warnings.
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        continue-on-error: true
-      - name: Shadow gate (Python)
-        continue-on-error: true
-        timeout-minutes: 5
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          py=.factory/ci/factory-py
-          [ -f "$py/factory/cli/shadow.py" ] || py=ci/factory-py
-          GITHUB_OUTPUT= GITHUB_STEP_SUMMARY= FACTORY_OUT=factory-out-py FACTORY_QUARANTINE_FILE=quarantine.json \
-            FACTORY_POLICY_DIR="$FACTORY_CODE/policy" uv run --frozen --project "$py" "$py/run.py" gate > /dev/null
-          uv run --frozen --project "$py" "$py/run.py" shadow gate factory-out factory-out-py
+        run: FACTORY_QUARANTINE_FILE=quarantine.json FACTORY_POLICY_DIR="$FACTORY_CODE/policy" $FACTORY_RUN gate
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-gate
@@ -144,18 +131,12 @@ jobs:
           ref: ${{ env.FACTORY_BASE }}
           path: .factory
           sparse-checkout: ci
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Use the base branch's record and test scripts
         run: |
-          if [ -f .factory/ci/factory/verify-record.mjs ]; then
-            echo "RECORD=.factory/ci/factory/verify-record.mjs" >> "$GITHUB_ENV"
-          else
-            echo "RECORD=ci/factory/verify-record.mjs" >> "$GITHUB_ENV"
-          fi
-          if [ -f .factory/ci/factory/test-run.mjs ]; then
-            echo "TESTRUN=.factory/ci/factory/test-run.mjs" >> "$GITHUB_ENV"
-          else
-            echo "TESTRUN=ci/factory/test-run.mjs" >> "$GITHUB_ENV"
-          fi
+          py=.factory/ci/factory-py
+          [ -f "$py/run.py" ] || py=ci/factory-py
+          echo "FACTORY_RUN=uv run --frozen --project $py $py/run.py" >> "$GITHUB_ENV"
       - name: Quarantine list
         env:
           GH_TOKEN: ${{ github.token }}
@@ -186,16 +167,16 @@ jobs:
           set +e
           npx nx affected -t lint --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
           code=$?
-          node "$RECORD" format-lint "$code" "nx affected -t lint"
+          $FACTORY_RUN verify-record format-lint "$code" "nx affected -t lint"
       - name: Build
         run: |
           set +e
           npx nx affected -t build --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
           code=$?
-          node "$RECORD" build "$code" "nx affected -t build"
+          $FACTORY_RUN verify-record build "$code" "nx affected -t build"
       - name: Unit tests
-        # Retries, flake confirmation and quarantine: see ci/factory/flaky.mjs.
-        run: FACTORY_QUARANTINE_FILE=quarantine.json node "$TESTRUN"
+        # Retries, flake confirmation and quarantine: see ci/factory-py/factory/flaky.py.
+        run: FACTORY_QUARANTINE_FILE=quarantine.json $FACTORY_RUN test-run
       - name: Owners' required checks
         if: needs.gate.outputs.owner_checks != ''
         env:
@@ -205,20 +186,16 @@ jobs:
           for check in $OWNER_CHECKS; do
             npx nx run "$check" --outputStyle=static || code=1
           done
-          node "$RECORD" owner-checks "$code" "$OWNER_CHECKS"
+          $FACTORY_RUN verify-record owner-checks "$code" "$OWNER_CHECKS"
       - name: Regression test (escape-fix)
         if: needs.gate.outputs.escape_fix == 'true'
         run: |
-          script=.factory/ci/factory/regression-cli.mjs
-          [ -f "$script" ] || script=ci/factory/regression-cli.mjs
-          node "$script"
+          $FACTORY_RUN regression
       - name: Mutation score (R2 and above)
         if: needs.gate.outputs.tier == 'R2' || needs.gate.outputs.tier == 'R3'
         run: |
           npx nx affected -t mutation --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static || true
-          script=.factory/ci/factory/mutation-cli.mjs
-          [ -f "$script" ] || script=ci/factory/mutation-cli.mjs
-          FACTORY_GATE=gate/gate.json node "$script"
+          FACTORY_GATE=gate/gate.json $FACTORY_RUN mutation
       # main's coverage per project, for the ratchet. Caches saved on main are
       # readable from PRs, but a PR can't write to main's cache scope.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -228,12 +205,10 @@ jobs:
           restore-keys: factory-metrics-
       - name: Diff coverage and ratchet
         run: |
-          script=.factory/ci/factory/diff-coverage-cli.mjs
-          [ -f "$script" ] || script=ci/factory/diff-coverage-cli.mjs
-          FACTORY_GATE=gate/gate.json FACTORY_METRICS_FILE=factory-metrics.json node "$script"
+          FACTORY_GATE=gate/gate.json FACTORY_METRICS_FILE=factory-metrics.json $FACTORY_RUN diff-coverage
       - name: Record main's coverage
         if: github.event_name == 'push'
-        run: node ci/factory/metrics.mjs factory-metrics.json "$FACTORY_OUT/coverage-totals.json" "$GITHUB_SHA"
+        run: $FACTORY_RUN metrics factory-metrics.json "$FACTORY_OUT/coverage-totals.json" "$GITHUB_SHA"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.event_name == 'push'
         with:
@@ -261,16 +236,11 @@ jobs:
           ref: ${{ env.FACTORY_BASE }}
           sparse-checkout: ci
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: hashFiles('ci/factory/admission-cli.mjs') == ''
+        if: hashFiles('ci/factory-py/run.py') == ''
         with:
           ref: ${{ env.FACTORY_HEAD }}
           sparse-checkout: ci
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      # Admission reads policy YAML; the sparse checkout keeps the root
-      # package files, so this installs the workspace's yaml package.
-      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: factory-*
@@ -291,23 +261,7 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" --paginate \
             --jq '[group_by(.user.login)[] | last | select(.state == "APPROVED") | .user.login]' | jq -s 'add // []' > approvers.json
       - name: Admission
-        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json node ci/factory/admission-cli.mjs
-      # Shadow run while the factory moves to Python: the same decision from
-      # the Python admission, compared with the JS one. Never blocks.
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        if: always()
-        continue-on-error: true
-      - name: Shadow admission (Python)
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        run: |
-          py=ci/factory-py
-          if [ ! -f "$py/factory/cli/shadow.py" ]; then echo "The base branch has no Python admission yet."; exit 0; fi
-          mkdir -p shadow-py
-          GITHUB_STEP_SUMMARY= FACTORY_IN=factory-in FACTORY_OUT=shadow-py FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json \
-            FACTORY_APPROVERS_FILE=approvers.json uv run --frozen --project "$py" "$py/run.py" admission > /dev/null || true
-          uv run --frozen --project "$py" "$py/run.py" shadow admission . shadow-py
+        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json uv run --frozen --project ci/factory-py ci/factory-py/run.py admission
       - name: Quarantine confirmed flaky tests
         if: always() && github.event_name == 'pull_request'
         env:
