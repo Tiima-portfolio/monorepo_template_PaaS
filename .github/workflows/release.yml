@@ -58,6 +58,14 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           driver-opts: ${{ vars.FACTORY_BUILDKIT_IMAGE && format('image={0}', vars.FACTORY_BUILDKIT_IMAGE) || '' }}
+      # The main instance of the shared BuildKit service, when configured; it
+      # also writes the layer cache. Unset: the builder above.
+      - uses: ./.github/actions/buildkit-service
+        with:
+          addr: ${{ vars.FACTORY_BUILDKIT_ADDR_MAIN }}
+          tls: ${{ secrets.FACTORY_BUILDKIT_MAIN_TLS }}
+          cache-ref: ${{ vars.FACTORY_BUILDKIT_CACHE_REF }}
+          cache-write: "true"
       - name: Release
         env:
           # The App token (contents and workflows write) can release older

@@ -156,6 +156,15 @@ jobs:
         run: cp gate/mise.toml mise.local.toml
       - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
         if: needs.gate.outputs.has_tools == 'true'
+      # The shared BuildKit service, when the repository configures it: main
+      # pushes use the main instance and write the layer cache; PRs and the
+      # merge queue use the PR instance and only read it. Unset: local BuildKit.
+      - uses: ./.github/actions/buildkit-service
+        with:
+          addr: ${{ github.event_name == 'push' && vars.FACTORY_BUILDKIT_ADDR_MAIN || github.event_name != 'push' && vars.FACTORY_BUILDKIT_ADDR || '' }}
+          tls: ${{ github.event_name == 'push' && secrets.FACTORY_BUILDKIT_MAIN_TLS || github.event_name != 'push' && secrets.FACTORY_BUILDKIT_TLS || '' }}
+          cache-ref: ${{ vars.FACTORY_BUILDKIT_CACHE_REF }}
+          cache-write: ${{ github.event_name == 'push' }}
       - name: Lint
         run: |
           set +e
