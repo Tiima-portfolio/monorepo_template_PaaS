@@ -1,0 +1,6 @@
+name: ci-lint
+owner: team-platform
+toolchains: [container]
+criticality: normal
+consumes: []
+contract: []
