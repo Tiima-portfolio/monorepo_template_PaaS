@@ -23,7 +23,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          uv run --frozen --project ci/factory-py ci/factory-py/run.py metrics-report > report.md
+          uv run --frozen --project ci/factory ci/factory/run.py metrics-report > report.md
           cat report.md >> "$GITHUB_STEP_SUMMARY"
           gh issue create --repo "$GITHUB_REPOSITORY" --label factory-metrics \
             --title "Factory metrics, week of $(date -u +%F)" --body-file report.md

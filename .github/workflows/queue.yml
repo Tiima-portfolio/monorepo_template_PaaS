@@ -47,4 +47,4 @@ jobs:
         if: steps.app.outputs.token != ''
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: uv run --frozen --project ci/factory-py ci/factory-py/run.py queue
+        run: uv run --frozen --project ci/factory ci/factory/run.py queue

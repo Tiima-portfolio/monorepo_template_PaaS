@@ -62,14 +62,14 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Use gate code from the base branch
         run: |
-          if [ -f .factory/ci/factory-py/run.py ]; then
+          if [ -f .factory/ci/factory/run.py ]; then
             code=.factory/ci
           else
             echo "::warning::The base branch has no gate yet; using this PR's gate code (bootstrap only)."
             code=ci
           fi
           echo "FACTORY_CODE=$code" >> "$GITHUB_ENV"
-          echo "FACTORY_RUN=uv run --frozen --project $code/factory-py $code/factory-py/run.py" >> "$GITHUB_ENV"
+          echo "FACTORY_RUN=uv run --frozen --project $code/factory $code/factory/run.py" >> "$GITHUB_ENV"
       - name: Check who added the override label
         if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'boundary-override')
         env:
@@ -134,8 +134,8 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Use the base branch's record and test scripts
         run: |
-          py=.factory/ci/factory-py
-          [ -f "$py/run.py" ] || py=ci/factory-py
+          py=.factory/ci/factory
+          [ -f "$py/run.py" ] || py=ci/factory
           echo "FACTORY_RUN=uv run --frozen --project $py $py/run.py" >> "$GITHUB_ENV"
       - name: Quarantine list
         env:
@@ -175,7 +175,7 @@ jobs:
           code=$?
           $FACTORY_RUN verify-record build "$code" "nx affected -t build"
       - name: Unit tests
-        # Retries, flake confirmation and quarantine: see ci/factory-py/factory/flaky.py.
+        # Retries, flake confirmation and quarantine: see ci/factory/factory/flaky.py.
         run: FACTORY_QUARANTINE_FILE=quarantine.json $FACTORY_RUN test-run
       - name: Owners' required checks
         if: needs.gate.outputs.owner_checks != ''
@@ -236,7 +236,7 @@ jobs:
           ref: ${{ env.FACTORY_BASE }}
           sparse-checkout: ci
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: hashFiles('ci/factory-py/run.py') == ''
+        if: hashFiles('ci/factory/run.py') == ''
         with:
           ref: ${{ env.FACTORY_HEAD }}
           sparse-checkout: ci
@@ -261,7 +261,7 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" --paginate \
             --jq '[group_by(.user.login)[] | last | select(.state == "APPROVED") | .user.login]' | jq -s 'add // []' > approvers.json
       - name: Admission
-        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json uv run --frozen --project ci/factory-py ci/factory-py/run.py admission
+        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json uv run --frozen --project ci/factory ci/factory/run.py admission
       - name: Quarantine confirmed flaky tests
         if: always() && github.event_name == 'pull_request'
         env:

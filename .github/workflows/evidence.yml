@@ -30,7 +30,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.FACTORY_EVIDENCE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.FACTORY_EVIDENCE_SECRET_ACCESS_KEY }}
           AWS_ENDPOINT_URL: ${{ vars.FACTORY_EVIDENCE_S3_ENDPOINT }}
-        run: uv run --frozen --project ci/factory-py ci/factory-py/run.py collect
+        run: uv run --frozen --project ci/factory ci/factory/run.py collect
       # Kept on GitHub as well, or only here when no bucket is configured.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && hashFiles('main-bundle.json') != ''

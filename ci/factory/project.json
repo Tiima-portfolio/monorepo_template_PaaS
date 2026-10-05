@@ -1,11 +1,11 @@
 {
   "name": "factory",
   "root": "ci/factory",
-  "tags": ["boundary:ci"],
+  "tags": ["boundary:ci", "toolchain:python"],
   "targets": {
     "test": {
       "executor": "nx:run-commands",
-      "options": { "command": "node --test test/*.test.mjs", "cwd": "ci/factory" },
+      "options": { "command": "uv run --frozen pytest -q", "cwd": "ci/factory" },
       "inputs": ["{projectRoot}/**/*", "{workspaceRoot}/ci/policy/**/*"],
       "cache": true
     }
