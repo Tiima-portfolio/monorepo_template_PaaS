@@ -15,7 +15,8 @@ def boundary_of(file: str, policy: dict) -> str | None:
 
 
 def check_boundary(files, policy: dict, override: bool = False) -> dict:
-    """override: a factory owner added the override label (the workflow checks who)."""
+    """A failed check has no "boundary" key, so gate.json leaves it out as the
+    JS did. override: a factory owner added the override label (the workflow checks who)."""
     by_boundary: dict[str, list[str]] = {}
     unowned = []
     for f in files:
@@ -28,7 +29,7 @@ def check_boundary(files, policy: dict, override: bool = False) -> dict:
     result = {"boundaries": boundaries, "by_boundary": by_boundary, "unowned": unowned, "override": False}
     if unowned:
         listing = "\n".join(f"- {f}" for f in unowned)
-        return {**result, "ok": False, "boundary": None,
+        return {**result, "ok": False,
                 "message": f"No boundary owns these paths; add them to ci/policy/boundaries.yaml or move them:\n{listing}"}
     if len(boundaries) <= 1:
         b = boundaries[0] if boundaries else None
@@ -37,5 +38,5 @@ def check_boundary(files, policy: dict, override: bool = False) -> dict:
         return {**result, "ok": True, "boundary": None, "override": True,
                 "message": f"Cross-boundary change allowed by the {policy['override']['label']} label: {', '.join(boundaries)}. Risk tier is R3."}
     split = "\n".join(f"- {b}: {len(by_boundary[b])} file(s), e.g. {by_boundary[b][0]}" for b in boundaries)
-    return {**result, "ok": False, "boundary": None,
+    return {**result, "ok": False,
             "message": f"This PR touches {len(boundaries)} boundaries. Split it into one PR per boundary:\n{split}"}

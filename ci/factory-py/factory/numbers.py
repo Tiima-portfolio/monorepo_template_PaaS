@@ -1,12 +1,18 @@
-"""Rounding that matches JavaScript's Math.round (half up), not Python's round."""
+"""Numbers that print like JavaScript's: Math.round halves up, and a whole
+number prints without ".0"."""
 
 import math
 
 
-def round1(x: float) -> float:
+def num(x):
+    """50.0 -> 50, so messages read the same as the JS factory's."""
+    return int(x) if isinstance(x, float) and x.is_integer() else x
+
+
+def round1(x: float):
     """Rounds to one decimal, halves up."""
-    return math.floor(x * 10 + 0.5) / 10
+    return num(math.floor(x * 10 + 0.5) / 10)
 
 
-def pct(part: int, total: int) -> float | None:
+def pct(part: int, total: int):
     return round1(part / total * 100) if total else None
