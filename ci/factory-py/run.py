@@ -8,7 +8,10 @@ folder on the import path, so the factory package needs no install step.
 import importlib
 import sys
 
-COMMANDS = ["gate", "admission", "verify-record", "test-run", "diff-coverage", "mutation", "regression"]
+COMMANDS = [
+    "gate", "admission", "verify-record", "test-run", "diff-coverage", "mutation", "regression",
+    "release", "queue", "promote", "collect", "rulesets", "metrics", "metrics-report", "mise-all",
+]
 
 if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
     sys.exit(f"usage: run.py <{'|'.join(COMMANDS)}> [args]")
