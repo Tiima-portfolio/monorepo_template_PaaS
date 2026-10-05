@@ -1,0 +1,6 @@
+name: buildkit
+owner: team-platform
+toolchains: [container]
+criticality: critical
+consumes: []
+contract: []
