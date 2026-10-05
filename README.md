@@ -69,5 +69,7 @@ Working skeleton, being built issue by issue. See the [skeleton issues](https://
 | `FACTORY_APP_ID`, `FACTORY_APP_PRIVATE_KEY` | Repository secrets | The factory GitHub App. Give it Contents, Pull requests, Issues and Workflows read and write, and Actions read. The release and revert jobs mint a short-lived token from it on each run |
 | `FACTORY_RUNNER_PR`, `FACTORY_RUNNER_QUEUE`, `FACTORY_RUNNER_MAIN` | Repository variables | Runner labels for the three pools in [`platform/runners/`](platform/runners/); GitHub-hosted runners when unset |
 | `FACTORY_EVIDENCE_S3_URI`, `FACTORY_EVIDENCE_S3_ENDPOINT` and their secrets | Variables and secrets | The write-once evidence bucket; without them evidence stays as workflow artifacts |
+| `FACTORY_BUILDKIT_ADDR`, `FACTORY_BUILDKIT_ADDR_MAIN`, `FACTORY_BUILDKIT_CACHE_REF` | Repository variables, optional | The [shared BuildKit service](docs/ci-cd-skeleton-plan.md#shared-buildkit-service): its PR and main instances and the registry layer cache. Container builds use the runner's local BuildKit when unset |
+| `FACTORY_BUILDKIT_TLS`, `FACTORY_BUILDKIT_MAIN_TLS` | Repository secrets, optional | Client certificates for those instances: `tar -cz ca.crt tls.crt tls.key \| base64` |
 | `FACTORY_ADMIN_TOKEN` | Repository secret, optional | Lets the daily ruleset check re-apply drifted rulesets |
 | Rulesets | `node ci/factory/rulesets.mjs apply` | Branch protection for `main`; the merge queue and release-tag rulesets need an organization-owned repository |
