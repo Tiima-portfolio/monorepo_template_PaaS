@@ -1,0 +1,6 @@
+name: ci-typescript
+owner: team-platform
+toolchains: [container]
+criticality: normal
+consumes: []
+contract: []
