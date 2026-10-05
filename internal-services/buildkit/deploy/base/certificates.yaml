@@ -1,0 +1,62 @@
+# mTLS with the service's own CA, issued by cert-manager. The daemon accepts
+# only clients with a certificate from this CA; runners get theirs from the
+# client Secret (see platform/runners/).
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: buildkit-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: buildkit-ca
+spec:
+  isCA: true
+  commonName: buildkit-ca
+  secretName: buildkit-ca
+  duration: 8760h
+  privateKey:
+    algorithm: ECDSA
+  issuerRef:
+    name: buildkit-selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: buildkit-ca
+spec:
+  ca:
+    secretName: buildkit-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: buildkit-daemon
+spec:
+  secretName: buildkit-daemon-certs
+  duration: 720h
+  renewBefore: 240h
+  usages: [server auth]
+  dnsNames:
+    - buildkit
+  privateKey:
+    algorithm: ECDSA
+  issuerRef:
+    name: buildkit-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: buildkit-client
+spec:
+  secretName: buildkit-client-certs
+  duration: 720h
+  renewBefore: 240h
+  usages: [client auth]
+  commonName: factory-runner
+  privateKey:
+    algorithm: ECDSA
+  issuerRef:
+    name: buildkit-ca

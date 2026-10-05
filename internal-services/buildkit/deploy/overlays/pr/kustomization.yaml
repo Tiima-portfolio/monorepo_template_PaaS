@@ -1,0 +1,32 @@
+# buildkit-pr: builds for the pr and queue runner pools. These run code a PR
+# may have changed, so this instance never builds anything that is released.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: buildkit-pr
+resources:
+  - namespace.yaml
+  - ../../base
+patches:
+  - target: { kind: NetworkPolicy, name: buildkit }
+    patch: |
+      - op: replace
+        path: /spec/ingress/0/from
+        value:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: arc-runners
+            podSelector:
+              matchExpressions:
+                - key: factory.dev/runner-pool
+                  operator: In
+                  values: [pr, queue]
+  - target: { kind: Deployment, name: buildkit }
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 4
+  - target: { kind: Certificate, name: buildkit-daemon }
+    patch: |
+      - op: replace
+        path: /spec/dnsNames
+        value: [buildkit, buildkit.buildkit-pr.svc, buildkit.buildkit-pr.svc.cluster.local]

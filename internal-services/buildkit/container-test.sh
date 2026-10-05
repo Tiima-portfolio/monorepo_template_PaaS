@@ -1,9 +1,19 @@
 #!/bin/sh
-# Smoke test for the BuildKit service image: the daemon must start as a
-# non-root user with the factory's config and build an image.
+# Smoke test for the BuildKit service: both instances' manifests render, and
+# the daemon starts as a non-root user with the factory's config and builds
+# an image.
 set -eu
 image="$1"
 name="buildkit-smoke-$$"
+
+if command -v kubectl >/dev/null 2>&1; then
+  for overlay in pr main; do
+    kubectl kustomize "deploy/overlays/$overlay" >/dev/null \
+      || { echo "deploy/overlays/$overlay does not render"; exit 1; }
+  done
+else
+  echo "kubectl not found: skipping the manifest check"
+fi
 
 # Rootless buildkitd needs unprivileged user namespaces. Ubuntu 24.04 hosts,
 # including GitHub-hosted runners, restrict them through AppArmor; cluster
@@ -20,7 +30,8 @@ if [ "$(cat "$sysctl" 2>/dev/null || echo 0)" = "1" ]; then
 fi
 
 # Rootless buildkitd needs these unconfined profiles (see BuildKit's
-# docs/rootless.md); the Kubernetes manifests set the same.
+# docs/rootless.md). Kubernetes has no systempaths option, so the manifests
+# use --oci-worker-no-process-sandbox instead.
 docker run -d --name "$name" \
   --security-opt seccomp=unconfined \
   --security-opt apparmor=unconfined \

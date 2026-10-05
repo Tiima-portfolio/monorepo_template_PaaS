@@ -1,0 +1,20 @@
+# One BuildKit instance. Use an overlay (overlays/pr or overlays/main), never
+# the base on its own.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - certificates.yaml
+  - deployment.yaml
+  - service.yaml
+  - networkpolicy.yaml
+  - pdb.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/name: buildkit
+      app.kubernetes.io/part-of: factory
+    includeSelectors: false
+images:
+  # The image this service releases; pin the digest of the version you deploy.
+  - name: buildkit
+    newName: <registry>/buildkit
+    newTag: <version>
