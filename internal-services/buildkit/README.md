@@ -15,6 +15,13 @@ The image is released like any other service image, as
 `<registry>/buildkit:<version>`. Bumping BuildKit is a digest change in the
 `Dockerfile`; the smoke test proves the new daemon still builds.
 
+## Host requirement
+
+Rootless BuildKit needs unprivileged user namespaces. Hosts that restrict
+them through AppArmor (Ubuntu 23.10 and later, so also GitHub-hosted runners)
+need `kernel.apparmor_restrict_unprivileged_userns=0`; the smoke test sets it
+on CI runners itself.
+
 ## Running it locally
 
 ```bash

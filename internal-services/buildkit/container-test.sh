@@ -5,6 +5,20 @@ set -eu
 image="$1"
 name="buildkit-smoke-$$"
 
+# Rootless buildkitd needs unprivileged user namespaces. Ubuntu 24.04 hosts,
+# including GitHub-hosted runners, restrict them through AppArmor; cluster
+# nodes need the same setting (see README). On an ephemeral CI runner we
+# lift the restriction; elsewhere we say what to change.
+sysctl=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+if [ "$(cat "$sysctl" 2>/dev/null || echo 0)" = "1" ]; then
+  if [ "${CI:-}" = "true" ]; then
+    sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+  else
+    echo "This host restricts unprivileged user namespaces; run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0"
+    exit 1
+  fi
+fi
+
 # Rootless buildkitd needs these unconfined profiles (see BuildKit's
 # docs/rootless.md); the Kubernetes manifests set the same.
 docker run -d --name "$name" \
