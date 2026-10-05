@@ -19,4 +19,8 @@ run markdownlint-cli2 --help | grep -q 'markdownlint-cli2 v0\.23\.3' || { echo "
 if docker run --rm --user 12345:12345 "$image" sh -c 'cd /tmp && printf "# A\n# A\n" > x.md && markdownlint-cli2 x.md' >/dev/null 2>&1; then
   echo "markdownlint-cli2 accepted a duplicate heading"; exit 1
 fi
+run taplo --version | grep -q 'taplo 0\.9\.3' || { echo "taplo is not 0.9.3"; exit 1; }
+if printf 'a = 1\na = 2\n' | run taplo lint - >/dev/null 2>&1; then
+  echo "taplo accepted a duplicate key"; exit 1
+fi
 echo "ci-lint image OK"
