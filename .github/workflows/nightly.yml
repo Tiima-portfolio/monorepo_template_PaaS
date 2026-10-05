@@ -31,7 +31,8 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: node ci/factory/mise-all.mjs > mise.local.toml
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - run: uv run --frozen --project ci/factory-py ci/factory-py/run.py mise-all > mise.local.toml
       - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -43,18 +44,20 @@ jobs:
       - name: Coverage and ratchet for every project
         run: |
           mkdir -p gate
-          npx nx show projects --withTarget=test --json | node -e "process.stdin.on('data',d=>require('fs').writeFileSync('gate/gate.json',JSON.stringify({affected:JSON.parse(d)})))"
+          npx nx show projects --withTarget=test --json | jq -c '{affected: .}' > gate/gate.json
           FACTORY_BASE=HEAD FACTORY_HEAD=HEAD FACTORY_SHA="$GITHUB_SHA" FACTORY_GATE=gate/gate.json \
-            FACTORY_METRICS_FILE=factory-metrics.json node ci/factory/diff-coverage-cli.mjs
+            FACTORY_METRICS_FILE=factory-metrics.json uv run --frozen --project ci/factory-py ci/factory-py/run.py diff-coverage
           cp factory-metrics.json previous-metrics.json 2>/dev/null || echo '{}' > previous-metrics.json
-          node ci/factory/metrics.mjs factory-metrics.json "$FACTORY_OUT/coverage-totals.json" "$GITHUB_SHA"
+          uv run --frozen --project ci/factory-py ci/factory-py/run.py metrics factory-metrics.json "$FACTORY_OUT/coverage-totals.json" "$GITHUB_SHA"
       - name: Full mutation run
         # Every project with a mutation target, over all of its code. Reported
         # in the run summary; it never blocks anything.
         run: |
           npx nx run-many -t mutation --all --outputStyle=static || true
           for f in $(find . -path ./node_modules -prune -o -path '*/mutation/report.json' -print); do
-            node -e "const r=require('$f');let k=0,l=0;for(const x of r.files||[])for(const m of x.mutations||[]){if(m.status==='KILLED')k++;else if(m.status==='LIVED')l++;}console.log('$f'.replace('./','').replace('/mutation/report.json','')+': '+(k+l?Math.round(k*1000/(k+l))/10+'% of '+(k+l)+' mutants killed':'no mutants'))" | tee -a "$GITHUB_STEP_SUMMARY"
+            name=${f#./}; name=${name%/mutation/report.json}
+            jq -r --arg p "$name" '[.files[]?.mutations[]?.status] | {k: map(select(. == "KILLED")) | length, l: map(select(. == "LIVED")) | length}
+              | if .k + .l > 0 then "\($p): \((.k * 1000 / (.k + .l) | round) / 10)% of \(.k + .l) mutants killed" else "\($p): no mutants" end' "$f" | tee -a "$GITHUB_STEP_SUMMARY"
           done
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
