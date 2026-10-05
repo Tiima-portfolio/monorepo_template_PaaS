@@ -6,6 +6,10 @@ runnerScaleSetName: factory-pr
 minRunners: 2
 maxRunners: 200
 template:
+  metadata:
+    labels:
+      # The BuildKit service's NetworkPolicy admits runners by this label.
+      factory.dev/runner-pool: pr
   spec:
     containers:
       - name: runner
@@ -21,3 +25,23 @@ template:
               secretKeyRef:
                 name: factory-nx-cache
                 key: read-only-token
+          # The shared BuildKit service, pr instance (internal-services/buildkit).
+          # Remove these to build with the runner's local BuildKit.
+          - name: FACTORY_BUILDKIT_ADDR
+            value: tcp://buildkit.buildkit-pr.svc:1234
+          - name: FACTORY_BUILDKIT_TLS_DIR
+            value: /buildkit-tls
+          - name: FACTORY_BUILDKIT_CACHE_REF
+            value: <internal-registry>/factory/buildkit-cache
+          - name: FACTORY_BUILDKIT_CACHE_WRITE
+            value: "false"
+        volumeMounts:
+          - name: buildkit-tls
+            mountPath: /buildkit-tls
+            readOnly: true
+    volumes:
+      # A copy of the buildkit-client-certs Secret from the buildkit-pr
+      # namespace (ca.crt, tls.crt, tls.key), synced into the runner namespace.
+      - name: buildkit-tls
+        secret:
+          secretName: buildkit-pr-client-certs
