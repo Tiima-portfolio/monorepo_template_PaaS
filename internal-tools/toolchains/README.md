@@ -56,6 +56,14 @@ cargo-mutants; a small converter in each toolchain folder writes the common
 report. `{toolchainDir}` in a command is the toolchain folder, relative to
 the project.
 
+Container images are built through `container/buildx.mjs`. It uses the shared
+BuildKit service ([`internal-services/buildkit`](../../internal-services/buildkit/))
+when `FACTORY_BUILDKIT_ADDR` is set and the service answers, and the local
+BuildKit otherwise, with a warning if the service was set but down. With the
+service, `FACTORY_BUILDKIT_TLS_DIR` holds the client certificate and
+`FACTORY_BUILDKIT_CACHE_REF` a registry repository for the layer cache, which
+only runners with `FACTORY_BUILDKIT_CACHE_WRITE=true` (main) write.
+
 Test targets also write per-test reports to `test-results/` (JUnit XML for
 TypeScript and Python, Go's JSON test events), so the factory can quarantine
 a single flaky test instead of a whole project.

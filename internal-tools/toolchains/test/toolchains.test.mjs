@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createService } from '../new-service.mjs';
+import { BUILDER, buildArgs, createArgs } from '../container/buildx.mjs';
 
 const require = createRequire(import.meta.url);
 const { loadToolchains, projectFor } = require('../plugin.js');
@@ -44,7 +45,7 @@ test('new-service creates a project from the template', () => {
 
 test('a language plus container runs both, in order', () => {
   const p = projectFor('product/services/api/service.yaml', { name: 'api', toolchains: ['go', 'container'] }, loadToolchains());
-  assert.match(p.targets.build.options.command, /^CGO_ENABLED=0 go build .* && docker buildx build --load -t api:ci \.$/);
+  assert.match(p.targets.build.options.command, /^CGO_ENABLED=0 go build .* && node \.\.\/\.\.\/\.\.\/internal-tools\/toolchains\/container\/buildx\.mjs api --load -t api:ci \.$/);
   assert.equal(p.targets.build.cache, false);
   assert.match(p.targets.lint.options.command, /go vet .* && hadolint Dockerfile/);
   assert.ok(!(p.targets.test.dependsOn || []).includes('test'));
@@ -53,4 +54,23 @@ test('a language plus container runs both, in order', () => {
 test('a plain container service gets lint, build, test and package', () => {
   const p = projectFor('product/services/edge/service.yaml', { name: 'edge', toolchains: ['container'] }, loadToolchains());
   for (const t of ['lint', 'build', 'test', 'package']) assert.ok(p.targets[t], t);
+});
+
+test('container builds use the local BuildKit unless the service answered', () => {
+  const env = { FACTORY_BUILDKIT_ADDR: 'tcp://buildkit:1234', FACTORY_BUILDKIT_CACHE_REF: 'reg/cache' };
+  assert.deepEqual(buildArgs({}, 'edge', ['--load', '.'], false), ['buildx', 'build', '--load', '.']);
+  assert.deepEqual(buildArgs(env, 'edge', ['--load', '.'], false), ['buildx', 'build', '--load', '.']);
+  assert.deepEqual(buildArgs(env, 'edge', ['--load', '.'], true), ['buildx', 'build', '--builder', BUILDER, '--cache-from', 'type=registry,ref=reg/cache:edge', '--load', '.']);
+});
+
+test('only main runners write the BuildKit layer cache', () => {
+  const env = { FACTORY_BUILDKIT_CACHE_REF: 'reg/cache', FACTORY_BUILDKIT_CACHE_WRITE: 'true' };
+  assert.ok(buildArgs(env, 'edge', ['.'], true).includes('type=registry,ref=reg/cache:edge,mode=max'));
+  assert.ok(!buildArgs({ ...env, FACTORY_BUILDKIT_CACHE_WRITE: 'false' }, 'edge', ['.'], true).includes('--cache-to'));
+});
+
+test('the BuildKit service builder uses the client certificate', () => {
+  assert.deepEqual(createArgs({ FACTORY_BUILDKIT_ADDR: 'tcp://buildkit:1234' }), ['buildx', 'create', '--name', BUILDER, '--driver', 'remote', 'tcp://buildkit:1234']);
+  assert.deepEqual(createArgs({ FACTORY_BUILDKIT_ADDR: 'tcp://buildkit:1234', FACTORY_BUILDKIT_TLS_DIR: '/certs' }).slice(6, 12),
+    ['--driver-opt', 'cacert=/certs/ca.crt', '--driver-opt', 'cert=/certs/tls.crt', '--driver-opt', 'key=/certs/tls.key']);
 });

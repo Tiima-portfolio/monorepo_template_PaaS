@@ -2,7 +2,9 @@
 # toolchain, for example [go, container], its targets run after that
 # language's targets of the same name: the image is built from the binary.
 # In the air-gapped network, base images come from the internal registry and
-# are pinned by digest.
+# are pinned by digest. buildx.mjs builds through the shared BuildKit service
+# (internal-services/buildkit) when FACTORY_BUILDKIT_ADDR is set, and with
+# the local BuildKit otherwise.
 setup:
   mise:
     hadolint: "2.15.1"
@@ -11,14 +13,14 @@ targets:
     command: hadolint Dockerfile
     inputs: ["{projectRoot}/Dockerfile"]
   build:
-    command: docker buildx build --load -t {name}:ci .
+    command: node {toolchainDir}/buildx.mjs {name} --load -t {name}:ci .
     cache: false
   test:
     command: if [ -x container-test.sh ]; then ./container-test.sh {name}:ci; else docker run --rm {name}:ci; fi
     dependsOn: [build]
     cache: false
   package:
-    # A docker save archive works with the default docker driver; the OCI
-    # exporter needs a separate BuildKit container builder.
-    command: mkdir -p dist && docker buildx build --output type=docker,dest=dist/{name}-image.tar -t "{name}:${FACTORY_VERSION:-0.0.0}" .
+    # A docker save archive works with the default docker driver and the
+    # service; the OCI exporter needs a separate BuildKit container builder.
+    command: mkdir -p dist && node {toolchainDir}/buildx.mjs {name} --output type=docker,dest=dist/{name}-image.tar -t "{name}:${FACTORY_VERSION:-0.0.0}" .
     cache: false
