@@ -1,0 +1,64 @@
+# Publishes the toolchain images CI runs its targets in. Each image is a
+# container project under internal-tools/toolchains/; when its folder changes on
+# main, it is built with its own package target (the container toolchain's
+# BuildKit path) and pushed to GHCR under the commit. The digest goes to the run
+# summary: pinning it in the toolchain's toolchain.yaml is a separate PR.
+name: images
+
+on:
+  push:
+    branches: [main]
+    paths: ["internal-tools/toolchains/**"]
+  # Publishes every image, for example after setting up a copy of the template.
+  workflow_dispatch:
+
+concurrency:
+  group: images
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  NX_DAEMON: "false"
+  NX_NO_CLOUD: "true"
+
+jobs:
+  publish:
+    name: factory/images
+    runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # The package target exports a docker archive, which needs a BuildKit
+      # container builder, as in the release workflow.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: ${{ vars.FACTORY_BUILDKIT_IMAGE && format('image={0}', vars.FACTORY_BUILDKIT_IMAGE) || '' }}
+      - name: Build and push changed images
+        env:
+          BEFORE: ${{ github.event.before }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tag="${GITHUB_SHA::12}"
+          echo "### Toolchain images" >> "$GITHUB_STEP_SUMMARY"
+          for f in $(git ls-files ':(glob)internal-tools/toolchains/**/service.yaml'); do
+            dir=$(dirname "$f")
+            name=$(sed -n 's/^name: *//p' "$f")
+            if [ "$GITHUB_EVENT_NAME" = push ] && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "$dir"; then
+              continue
+            fi
+            FACTORY_VERSION="$tag" npx nx run "$name:package" --skip-nx-cache --outputStyle=static
+            skopeo copy --digestfile digest --dest-creds "$GITHUB_ACTOR:$REGISTRY_TOKEN" \
+              "docker-archive:$dir/dist/$name-image.tar" "docker://$registry/$name:$tag"
+            echo "- \`$name\`: \`$registry/$name:$tag@$(cat digest)\`" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
