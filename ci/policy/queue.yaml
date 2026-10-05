@@ -19,7 +19,6 @@ max_depth: 20
 rule_change_paths:
   - "ci/policy/**"
   - "ci/factory/**"
-  - "ci/factory-py/**"
   - ".github/**"
   - "**/guardrails.yaml"
 

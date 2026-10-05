@@ -27,7 +27,7 @@ jobs:
           HAS_ADMIN: ${{ secrets.FACTORY_ADMIN_TOKEN != '' }}
         run: |
           if [ "$HAS_ADMIN" = "true" ]; then
-            uv run --frozen --project ci/factory-py ci/factory-py/run.py rulesets apply
+            uv run --frozen --project ci/factory ci/factory/run.py rulesets apply
           else
-            uv run --frozen --project ci/factory-py ci/factory-py/run.py rulesets check
+            uv run --frozen --project ci/factory ci/factory/run.py rulesets check
           fi

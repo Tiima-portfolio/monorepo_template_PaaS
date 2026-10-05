@@ -50,6 +50,6 @@ def main(argv):
         if not optional:
             drift += 1
     if drift:
-        print(f"::warning::{drift} ruleset(s) differ from .github/rulesets/. Run: uv run --project ci/factory-py ci/factory-py/run.py rulesets apply")
+        print(f"::warning::{drift} ruleset(s) differ from .github/rulesets/. Run: uv run --project ci/factory ci/factory/run.py rulesets apply")
         return 1
     return 0

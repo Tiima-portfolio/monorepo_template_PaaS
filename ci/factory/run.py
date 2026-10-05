@@ -1,6 +1,6 @@
 """Runs a factory command: python run.py <command> [args].
 
-The workflows call it as `uv run --project ci/factory-py ci/factory-py/run.py
+The workflows call it as `uv run --project ci/factory ci/factory/run.py
 gate` (or the base branch's copy under .factory/). Running a file puts its
 folder on the import path, so the factory package needs no install step.
 """
@@ -11,7 +11,6 @@ import sys
 COMMANDS = [
     "gate", "admission", "verify-record", "test-run", "diff-coverage", "mutation", "regression",
     "release", "queue", "promote", "collect", "rulesets", "metrics", "metrics-report", "mise-all",
-    "shadow",
 ]
 
 if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
