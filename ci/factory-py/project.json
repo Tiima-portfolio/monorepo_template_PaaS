@@ -1,0 +1,13 @@
+{
+  "name": "factory-py",
+  "root": "ci/factory-py",
+  "tags": ["boundary:ci", "toolchain:python"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "uv run --frozen pytest -q", "cwd": "ci/factory-py" },
+      "inputs": ["{projectRoot}/**/*", "{workspaceRoot}/ci/policy/**/*"],
+      "cache": true
+    }
+  }
+}
