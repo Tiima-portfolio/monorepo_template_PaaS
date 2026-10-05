@@ -40,7 +40,9 @@ def main(argv):
         flaky_file.write_text("[]")
         return 0
 
-    projects = nx_json("show", "projects", "--affected", "--withTarget=test", *rng)
+    # A project the PR deletes still counts as affected, but has nothing to run.
+    existing = set(nx_json("show", "projects", "--withTarget=test"))
+    projects = [p for p in nx_json("show", "projects", "--affected", "--withTarget=test", *rng) if p in existing]
     quarantine = active_quarantine(read_json(env.get("FACTORY_QUARANTINE_FILE"), []))
 
     def rerun(p):
