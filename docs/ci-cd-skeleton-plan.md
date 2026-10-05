@@ -1,6 +1,6 @@
 # Monorepo CI/CD Skeleton Plan
 
-> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-04.
+> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-05.
 
 **Contents**
 
@@ -13,6 +13,7 @@
 7. [Promoting shared tooling](#promoting-shared-tooling)
    1. [Escaped defects feed back to the lowest level](#escaped-defects-feed-back-to-the-lowest-level)
 8. [Language toolchains and service catalog](#language-toolchains-and-service-catalog)
+   1. [Pinned toolchain images](#pinned-toolchain-images)
 9. [Ownership and contribution](#ownership-and-contribution)
    1. [Owner-defined guardrails](#owner-defined-guardrails)
 10. [Pipeline flow](#pipeline-flow)
@@ -296,7 +297,7 @@ Each toolchain folder holds a single `toolchain.yaml` that declares:
 
 - **Detection:** which services use it (named in each service's `service.yaml`).
 - **Targets:** the `lint`, `test`, `build` and `package` commands Nx runs for those services, with their cache inputs and outputs.
-- **Setup:** the tool versions CI installs, pinned through `mise`.
+- **Setup:** the tool versions, pinned through `mise` for local work, and the toolchain image CI runs the targets in, pinned by digest.
 - **Template:** a starter folder used when someone creates a new service.
 
 One generic Nx plugin in `internal-tools/toolchains/` reads every `toolchain.yaml` and every `service.yaml` and builds the project graph from them. Product services and internal services use the same toolchains. A service can list more than one toolchain, for example `[go, container]`, so a Go service also gets an `image` target built with BuildKit.
@@ -314,6 +315,36 @@ One generic Nx plugin in `internal-tools/toolchains/` reads every `toolchain.yam
 | rust | cargo clippy, cargo fmt --check | cargo test (nextest) | static binary tarball, or a crate in the internal registry for libraries |
 
 The service catalog is the set of `service.yaml` files. Owners are read from them at admission time, and admission requires the approvals described under Ownership and contribution, so adding a service never touches `.github/`. `CODEOWNERS` stays coarse, one line per boundary, and the catalog index is built by CI, not committed.
+
+### Pinned toolchain images
+
+CI runs every toolchain target in a container image the repo builds itself, pinned by digest, so each job gets exactly the tools the last reviewed pin named and downloads no tools at run time.
+
+| Image | Folder | Holds | Used by |
+| --- | --- | --- | --- |
+| `ci-lint` | `internal-tools/toolchains/lint-image/` | hadolint, shellcheck, actionlint | the container toolchain's `lint` |
+| `ci-typescript` | `internal-tools/toolchains/typescript/image/` | Node 24 and npm | all TypeScript targets |
+| `ci-go` | `internal-tools/toolchains/go/image/` | Go 1.25, gremlins, Node for the test report helper | all Go targets |
+| `ci-python` | `internal-tools/toolchains/python/image/` | Python 3.13, uv | all Python targets |
+| `ci-rust` | `internal-tools/toolchains/rust/image/` | Rust with rustfmt, clippy and llvm-tools, cargo-llvm-cov, cargo-mutants, Node for the report helper | all Rust targets |
+
+- **Each image is a project.** Its folder holds a `Dockerfile`, a `service.yaml` with `toolchains: [container]` and a `container-test.sh` that checks the tool versions against the toolchain's `setup.mise`. A PR that changes an image builds and tests it with the same container toolchain as any service, so it uses the shared BuildKit service once that is configured. A new language still means one folder: its image lives inside it.
+- **Base images are pinned by digest.** Every `FROM` names a tag and its digest; tools come from pinned upstream images or `go install`/`cargo install` at a fixed version.
+- **Publishing.** On `main`, the `images` workflow builds each image whose folder changed with the project's `package` target and pushes it to `ghcr.io/<owner>/<repo>/<image>:<commit>`, writing the digest to the run summary.
+- **Pinning is the promotion.** A toolchain's `toolchain.yaml` names its image by digest (`image:`, or per target). Moving a pin is a toolchains PR, R3 like any toolchain change, and re-tests every service on that toolchain before it merges. Rolling back is reverting the pin.
+- **Running a target in its image.** When `FACTORY_TOOLCHAIN_IMAGES=true`, the Nx plugin runs a pinned target through `internal-tools/toolchains/in-image.sh`: `docker run` as the caller's user, with the workspace mounted at the same path so reports keep their paths, `FACTORY_*` and mirror variables passed through, and a per-image cache directory mounted as `HOME`. Unset, targets run on the host as before, so local work doesn't need Docker; set it to check a change exactly as CI does.
+- **CI switches by one variable.** The verify and nightly jobs set `FACTORY_TOOLCHAIN_IMAGES=true`, log in to GHCR with the job token and drop `mise`. The release job does the same and keeps `mise` only for releasing commits from before the pins. Container builds stay on the runner's BuildKit: images are built by the container toolchain, not inside an image.
+- **Public runners by default.** The images are on GHCR, which GitHub-hosted runners reach directly. Make the packages public once so developers can pull them without logging in.
+- **Air-gapped, optional.** Mirror the pinned images into the internal registry and set `FACTORY_TOOLCHAIN_REGISTRY` to its host: `in-image.sh` swaps `ghcr.io` for it and keeps the digest, so the pins stay valid. Image builds then take base images through the internal registry. Off by default.
+- **Not in the images.** Packages that projects fetch from a package index (npm, PyPI, crates, Go modules, and the mutation tools Stryker and mutmut) still come from the index or its internal mirror. The factory's own scripts keep running on the runner's Node until the Python factory settles its runtime.
+
+Delivered as one PR per step, each linked to its issue:
+
+1. This section (docs), [#137](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/137).
+2. The `images` workflow that publishes changed toolchain images to GHCR (CI), [#138](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/138).
+3. One PR per image (toolchains): `ci-lint` [#139](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/139), `ci-typescript` [#140](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/140), `ci-go` [#141](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/141), `ci-python` [#142](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/142), `ci-rust` [#143](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/143).
+4. `in-image.sh`, the plugin's `image:` support and the first digest pins (toolchains), [#144](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/144).
+5. Verify, nightly and release jobs run the toolchains in the pinned images (CI), [#145](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/145).
 
 ## Ownership and contribution
 
@@ -698,7 +729,7 @@ The skeleton assumes no direct internet access from developer machines or CI; Gi
 
 - **Runners:** self-hosted GitHub Actions runners inside the network, so builds never leave it.
 - **Dependencies:** npm, Go modules, PyPI and container base images come only through an internal mirror. Each toolchain's `toolchain.yaml` points at that mirror, never at the public registries.
-- **Tool versions:** Node, Go, Python, `uv` and BuildKit are installed from the mirror or baked into the runner image, not downloaded by `mise` at run time.
+- **Tool versions:** Node, Go, Python, `uv` and the linters come in the pinned toolchain images, mirrored into the internal registry (`FACTORY_TOOLCHAIN_REGISTRY`); BuildKit comes from the mirror. Nothing is downloaded by `mise` at run time.
 - **Cache:** the Nx remote cache is a self-hosted bucket inside the network.
 - **Artifacts:** published to GitHub (container registry and Releases) only.
 - **GitHub Actions:** only actions vendored into this repo or into an approved GitHub organisation, pinned by commit SHA; no marketplace action that downloads at run time.
