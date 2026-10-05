@@ -1,6 +1,6 @@
 # Monorepo CI/CD Skeleton Plan
 
-> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-04.
+> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-05.
 
 **Contents**
 
@@ -25,6 +25,7 @@
 13. [Agent guardrails](#agent-guardrails)
 14. [Developer self-service](#developer-self-service)
 15. [Air-gapped environment](#air-gapped-environment)
+16. [Shared BuildKit service](#shared-buildkit-service)
 
 ## Goal and scope
 
@@ -708,3 +709,32 @@ The skeleton assumes no direct internet access from developer machines or CI; Gi
 - **New packages are self-service.** A developer requests a missing package, security approves it, the mirror syncs, and the waiting PR re-runs on its own.
 - **Security fixes are fast.** The mirror syncs on a schedule with a fast lane for security fixes, and the dependency update bot runs inside the network against the mirror.
 - **Clones are partial.** CI uses partial clones deep enough to find the merge base, with a git cache on the runners, so 300 agents don't saturate GitHub.
+
+## Shared BuildKit service
+
+Container images are built by BuildKit. By default each runner uses its own local BuildKit, which is what public GitHub-hosted runners have. At 100 services and 300 agents, an internal BuildKit service gives every build the same pinned BuildKit, a warm layer cache and base images from the internal registry, without a privileged Docker daemon on every runner.
+
+The service is `internal-services/buildkit`: a rootless `buildkitd` image released like any other service image, and Kustomize manifests the CI/platform team applies with its own tooling. We deliver it as an artifact plus deployable manifests; the factory never applies them.
+
+```mermaid
+flowchart LR
+  PR["<b>PR and queue runners</b>"] -->|mTLS| BP["<b>buildkit-pr</b>"]
+  M["<b>main runners</b>"] -->|mTLS| BM["<b>buildkit-main</b>"]
+  BP -->|pull cache| REG[("Internal registry<br/>base images, layer cache")]
+  BM -->|pull and push cache| REG
+```
+
+- **Two instances, never shared.** `buildkit-pr` serves PR and merge queue builds; `buildkit-main` serves only `main`. A PR's build steps run inside its daemon, so a daemon that built PR code is never trusted to build a release. This mirrors the Nx cache's read-only and read-write tokens.
+- **Only `main` writes the cache.** Registry credentials come from the client, not the daemon, so PR runners, which hold no push credentials, can read the layer cache but never write it.
+- **Switched by config, off by default.** The container toolchain uses the service when `FACTORY_BUILDKIT_ADDR` is set and the local BuildKit otherwise. Runner pods set it in `platform/runners/`; repository variables and secrets set it for GitHub-hosted runners.
+- **Down means slower, not stuck.** If the service is configured but doesn't answer, the build warns and falls back to the local BuildKit, like the Nx cache.
+- **mTLS only.** Clients present a certificate from the service's own CA; the daemon listens on nothing else, and a NetworkPolicy admits only runner pods.
+
+| Step | Boundary | Issue |
+| --- | --- | --- |
+| This section | Docs | #127 |
+| Service image and smoke test | Internal service | #128 |
+| Deployable manifests | Internal service | #129 |
+| Container toolchain switches by config | Internal tool | #130 |
+| CI jobs pass the settings | CI | #131 |
+| Runner pools point at the service | Platform | #132 |
