@@ -1,0 +1,42 @@
+# Points container builds at the shared BuildKit service
+# (internal-services/buildkit) through the FACTORY_BUILDKIT_* variables that
+# the container toolchain reads. Without an address it does nothing, so a
+# runner pod's own settings stay as they are and builds use local BuildKit.
+name: BuildKit service
+description: Use the shared BuildKit service for container builds when one is configured
+inputs:
+  addr:
+    description: The service address, e.g. tcp://buildkit.example:1234
+    default: ""
+  tls:
+    description: The client certificate, a base64 tar.gz of ca.crt, tls.crt and tls.key
+    default: ""
+  cache-ref:
+    description: Registry repository for the BuildKit layer cache
+    default: ""
+  cache-write:
+    description: "\"true\" to also write the layer cache (main only)"
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - if: inputs.addr != ''
+      shell: bash
+      env:
+        ADDR: ${{ inputs.addr }}
+        TLS: ${{ inputs.tls }}
+        CACHE_REF: ${{ inputs.cache-ref }}
+        CACHE_WRITE: ${{ inputs.cache-write }}
+      run: |
+        echo "FACTORY_BUILDKIT_ADDR=$ADDR" >> "$GITHUB_ENV"
+        if [ -n "$TLS" ]; then
+          dir="$RUNNER_TEMP/buildkit-tls"
+          mkdir -p "$dir"
+          printf '%s' "$TLS" | base64 -d | tar -xz -C "$dir"
+          echo "FACTORY_BUILDKIT_TLS_DIR=$dir" >> "$GITHUB_ENV"
+        fi
+        if [ -n "$CACHE_REF" ]; then
+          echo "FACTORY_BUILDKIT_CACHE_REF=$CACHE_REF" >> "$GITHUB_ENV"
+          echo "FACTORY_BUILDKIT_CACHE_WRITE=$CACHE_WRITE" >> "$GITHUB_ENV"
+        fi
+        echo "Container builds use the BuildKit service at $ADDR"
