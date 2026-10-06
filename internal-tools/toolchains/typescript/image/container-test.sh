@@ -11,4 +11,5 @@ docker run --rm --user 12345:12345 "$image" sh -ec '
   echo "console.log(\"ok\")" > index.mjs
   test "$(node index.mjs)" = ok
   npm cache verify >/dev/null'
+docker run --rm --user 12345:12345 "$image" ps -o pid --no-headers >/dev/null || { echo "ps missing (Stryker needs it)"; exit 1; }
 echo "ci-typescript image OK"
