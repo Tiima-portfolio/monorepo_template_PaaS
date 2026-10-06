@@ -1,0 +1,8 @@
+apiVersion: v2
+name: radiator
+description: The radiator example's dashboard, radiator-api and radiator-web behind one ingress. Owned by team-platform.
+type: application
+# The release job sets the version from the radiator/v<version> git tag.
+version: 0.0.0
+appVersion: "0.0.0"
+icon: https://helm.sh/img/helm.svg

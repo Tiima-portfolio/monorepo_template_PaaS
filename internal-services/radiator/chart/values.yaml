@@ -1,0 +1,35 @@
+global:
+  # The image tag for both components unless one sets its own: the PR's commit
+  # for a PR deploy, a released version otherwise.
+  imageTag: "0.0.0"
+
+registry: ghcr.io/tiima-portfolio/monorepo_template_paas
+
+# One Deployment and Service per component. The ingress sends each path
+# prefix to its component's Service; the longest prefix wins.
+components:
+  api:
+    image: radiator-api
+    tag: ""
+    port: 8000
+    path: /api
+    health: /healthz
+    replicas: 1
+    resources:
+      requests: { cpu: 50m, memory: 96Mi }
+      limits: { memory: 192Mi }
+  web:
+    image: radiator-web
+    tag: ""
+    port: 8080
+    path: /
+    health: /
+    replicas: 1
+    resources:
+      requests: { cpu: 10m, memory: 16Mi }
+      limits: { memory: 64Mi }
+
+ingress:
+  enabled: true
+  className: ""
+  host: radiator.internal.example
