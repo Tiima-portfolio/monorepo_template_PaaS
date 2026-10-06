@@ -1,0 +1,32 @@
+[project]
+name = "radiator-api"
+version = "0.0.0"
+description = "The radiator's API: the factory's state as JSON, from mock data for now."
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi==0.142.2",
+    "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2==2.13.1",
+    "pytest==9.1.1",
+    "ruff==0.16.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "radiator_api"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.coverage.report]
+exclude_also = ['if __name__ == "__main__":']

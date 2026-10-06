@@ -1,0 +1,8 @@
+name: radiator-api
+owner: team-platform
+toolchains: [python, container]
+criticality: normal
+consumes: []
+# The JSON schema of /api/radiator, which radiator-web reads. A test keeps it
+# in step with the code.
+contract: [openapi.json]

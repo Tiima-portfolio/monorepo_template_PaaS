@@ -1,0 +1,175 @@
+{
+  "components": {
+    "schemas": {
+      "Queue": {
+        "properties": {
+          "by_priority": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Priority",
+            "type": "object"
+          },
+          "depth": {
+            "title": "Depth",
+            "type": "integer"
+          },
+          "oldest_minutes": {
+            "title": "Oldest Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "depth",
+          "oldest_minutes",
+          "by_priority"
+        ],
+        "title": "Queue",
+        "type": "object"
+      },
+      "Radiator": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/Queue"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/Release"
+            },
+            "title": "Releases",
+            "type": "array"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/Service"
+            },
+            "title": "Services",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "services",
+          "queue",
+          "releases"
+        ],
+        "title": "Radiator",
+        "type": "object"
+      },
+      "Release": {
+        "properties": {
+          "released_at": {
+            "format": "date-time",
+            "title": "Released At",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "version",
+          "released_at"
+        ],
+        "title": "Release",
+        "type": "object"
+      },
+      "Service": {
+        "properties": {
+          "build_minutes": {
+            "title": "Build Minutes",
+            "type": "number"
+          },
+          "coverage": {
+            "title": "Coverage",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passing",
+              "failing",
+              "running"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "status",
+          "build_minutes",
+          "coverage"
+        ],
+        "title": "Service",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "radiator-api",
+    "version": "0.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/radiator": {
+      "get": {
+        "operationId": "get_radiator_api_radiator_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Radiator"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Radiator"
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz"
+      }
+    }
+  }
+}
