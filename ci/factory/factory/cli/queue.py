@@ -6,6 +6,7 @@ merge_group run starts; GITHUB_TOKEN events don't start workflows).
 """
 
 import json
+import subprocess
 
 from ..policy import load_policy
 from ..queue import is_rule_change, select_to_enqueue
@@ -64,7 +65,13 @@ def main(argv):
             print(f"#{p['number']} would be enqueued as {p['priority']}")
             continue
         pr_id = next(c["id"] for c in candidates if c["number"] == p["number"])
-        gql(ENQUEUE, id=pr_id, jump=p["jump"])
+        try:
+            gql(ENQUEUE, id=pr_id, jump=p["jump"])
+        except subprocess.CalledProcessError as e:
+            # GitHub refuses a PR that just changed state (a new push, a
+            # conflict); the next run picks it up again. The rest still go in.
+            print(f"::warning::#{p['number']} not enqueued: {(e.stderr or e.stdout or str(e)).strip()}")
+            continue
         print(f"#{p['number']} enqueued as {p['priority']}{' (front of the queue)' if p['jump'] else ''}")
     if not result["picks"] and not result["waiting"]:
         print("Nothing ready.")
