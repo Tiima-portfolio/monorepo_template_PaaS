@@ -230,7 +230,9 @@ jobs:
   admission:
     name: factory/admission
     needs: [gate, verify]
-    if: always()
+    # A run cancelled by a newer push or label change decides nothing: the
+    # newer run posts the decision, so no red admission is left behind.
+    if: ${{ !cancelled() }}
     runs-on: ${{ github.event_name == 'push' && (vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest') || github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
     permissions:
       actions: read
