@@ -72,4 +72,4 @@ Working skeleton, being built issue by issue. See the [skeleton issues](https://
 | `FACTORY_BUILDKIT_ADDR`, `FACTORY_BUILDKIT_ADDR_MAIN`, `FACTORY_BUILDKIT_CACHE_REF` | Repository variables, optional | The [shared BuildKit service](docs/ci-cd-skeleton-plan.md#shared-buildkit-service): its PR and main instances and the registry layer cache. Container builds use the runner's local BuildKit when unset |
 | `FACTORY_BUILDKIT_TLS`, `FACTORY_BUILDKIT_MAIN_TLS` | Repository secrets, optional | Client certificates for those instances: `tar -cz ca.crt tls.crt tls.key \| base64` |
 | `FACTORY_ADMIN_TOKEN` | Repository secret, optional | Lets the daily ruleset check re-apply drifted rulesets |
-| Rulesets | `node ci/factory/rulesets.mjs apply` | Branch protection for `main`; the merge queue and release-tag rulesets need an organization-owned repository |
+| Rulesets | `uv run --project ci/factory ci/factory/run.py rulesets apply` | Branch protection for `main`; the merge queue and release-tag rulesets need an organization-owned repository |
