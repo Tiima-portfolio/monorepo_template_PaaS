@@ -40,4 +40,7 @@ def diff(want: dict, have: dict | None) -> list[str]:
         return ["missing"]
     a = normalize(api_body(want))
     b = normalize(_only_wanted(want, have))
-    return [k for k in a if a[k] != b[k]]
+    # GitHub only shows bypass actors to repository admins; without them the
+    # field is absent, which says nothing about drift.
+    hidden = {"bypass_actors"} if "bypass_actors" not in have else set()
+    return [k for k in a if a[k] != b[k] and k not in hidden]

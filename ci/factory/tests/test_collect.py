@@ -105,3 +105,10 @@ def test_weekly_report():
     assert "Escapes opened / open now | 1 / 1" in md
     assert "| CHK-1 | 2 | 2 h |" in md
     assert "median 2 h, p90 2 h" in md
+
+
+def test_hidden_bypass_actors_are_not_drift():
+    # Without admin rights GitHub leaves bypass_actors out of the response.
+    live = {k: v for k, v in want.items() if k != "bypass_actors"}
+    assert diff(want, live) == []
+    assert diff(want, {**want, "bypass_actors": []}) == ["bypass_actors"]
