@@ -1,0 +1,8 @@
+apiVersion: v2
+name: __NAME__
+description: The __NAME__ chart, owned by __OWNER__.
+type: application
+# The release job sets the version from the service's git tag.
+version: 0.0.0
+appVersion: "0.0.0"
+icon: https://helm.sh/img/helm.svg

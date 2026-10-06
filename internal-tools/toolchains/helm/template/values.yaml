@@ -1,0 +1,6 @@
+global:
+  # Set per deploy: the PR's commit, or a released version.
+  imageTag: "0.0.0"
+image:
+  repository: ghcr.io/your-org/your-repo/__NAME__
+replicas: 1
