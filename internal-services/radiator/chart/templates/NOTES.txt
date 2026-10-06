@@ -1,0 +1,4 @@
+The radiator is deployed to {{ .Release.Namespace }}.
+
+Open http://{{ .Values.ingress.host }}/ for the dashboard; /api/radiator serves its data.
+Images: radiator-api and radiator-web at {{ .Values.global.imageTag }}, unless a component sets its own tag.
