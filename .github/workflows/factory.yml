@@ -16,7 +16,12 @@ permissions:
 
 concurrency:
   group: factory-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.sha }}
-  cancel-in-progress: true
+  # Only a new push cancels the run in progress: that run checked an older
+  # commit. Other PR events (opened, labeled, edited) check the same commit, so
+  # they wait instead. GitHub reads a required check from the commit's newest
+  # run, and a cancelled newest run would block the PR, which happened when
+  # opening a PR with a label started two runs in the same second.
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 env:
   NX_DAEMON: "false"
