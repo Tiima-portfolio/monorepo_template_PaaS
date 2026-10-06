@@ -20,6 +20,7 @@ permissions:
 env:
   NX_DAEMON: "false"
   NX_NO_CLOUD: "true"
+  FACTORY_TOOLCHAIN_IMAGES: "true"
 
 jobs:
   release:
@@ -49,9 +50,15 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # Toolchain targets run in the images pinned in each toolchain.yaml. The
+      # mise tools are only for releasing commits from before those pins.
       - name: Toolchains for every service
         run: uv run --frozen --project ci/factory ci/factory/run.py mise-all > mise.local.toml
       - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
+      - name: Log in to GHCR for the toolchain images
+        env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       # A BuildKit container builder, so commits from before the docker-archive
       # change, which export OCI layouts, can still be released. In the
       # air-gapped network, point driver-opts at the internal registry's

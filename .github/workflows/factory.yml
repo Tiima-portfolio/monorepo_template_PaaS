@@ -114,9 +114,11 @@ jobs:
     permissions:
       contents: read
       issues: read
+      packages: read
     runs-on: ${{ github.event_name == 'push' && (vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest') || github.event_name == 'merge_group' && (vars.FACTORY_RUNNER_QUEUE || 'ubuntu-latest') || (vars.FACTORY_RUNNER_PR || 'ubuntu-latest') }}
     env:
       FACTORY_AFFECTED: ${{ needs.gate.outputs.affected }}
+      FACTORY_TOOLCHAIN_IMAGES: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -153,12 +155,11 @@ jobs:
         with:
           name: factory-gate
           path: gate
-      # Toolchain versions come from each affected toolchain's toolchain.yaml.
-      - name: Toolchain setup file
-        if: needs.gate.outputs.has_tools == 'true'
-        run: cp gate/mise.toml mise.local.toml
-      - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
-        if: needs.gate.outputs.has_tools == 'true'
+      # Toolchain targets run in the images pinned in each toolchain.yaml.
+      - name: Log in to GHCR for the toolchain images
+        env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       # The shared BuildKit service, when the repository configures it: main
       # pushes use the main instance and write the layer cache; PRs and the
       # merge queue use the PR instance and only read it. Unset: local BuildKit.
