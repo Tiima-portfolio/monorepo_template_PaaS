@@ -4,7 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const spec = JSON.parse(fs.readFileSync(new URL('./openapi.json', import.meta.url), 'utf8'));
+// Read from the project root (the tests' working directory), so the compiled
+// copy of this test in dist/ finds the same file.
+const spec = JSON.parse(fs.readFileSync('src/contracts/radiator-api/openapi.json', 'utf8'));
 const schemas = spec.components.schemas;
 const READS: Record<string, string[]> = {
   Radiator: ['generated_at', 'services', 'queue', 'releases'],
