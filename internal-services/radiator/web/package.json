@@ -1,0 +1,11 @@
+{
+  "name": "radiator-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": ["public/**", "dist/**/*.js", "!dist/**/*.test.js", "!dist/contracts/**"],
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2"
+  }
+}

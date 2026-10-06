@@ -1,0 +1,7 @@
+name: radiator-web
+owner: team-platform
+toolchains: [typescript, container]
+criticality: normal
+# Reads /api/radiator; its contract test is in src/contracts/radiator-api/.
+consumes: [radiator-api]
+contract: []

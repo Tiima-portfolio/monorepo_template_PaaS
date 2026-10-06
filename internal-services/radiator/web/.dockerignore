@@ -1,0 +1,4 @@
+*
+!public/
+!dist/main.js
+!dist/radiator.js
