@@ -1,0 +1,67 @@
+{{- range $name, $c := .Values.components }}
+{{- $ctx := dict "root" $ "name" $name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    {{- include "radiator.labels" $ctx | nindent 4 }}
+spec:
+  replicas: {{ $c.replicas }}
+  selector:
+    matchLabels:
+      {{- include "radiator.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "radiator.labels" $ctx | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.registry }}/{{ $c.image }}:{{ $c.tag | default $.Values.global.imageTag }}"
+          ports:
+            - name: http
+              containerPort: {{ $c.port }}
+          readinessProbe:
+            httpGet:
+              path: {{ $c.health }}
+              port: http
+          livenessProbe:
+            httpGet:
+              path: {{ $c.health }}
+              port: http
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # nginx and uvicorn write only here; the root file system is read-only.
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    {{- include "radiator.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "radiator.selector" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}

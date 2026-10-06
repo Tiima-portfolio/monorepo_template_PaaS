@@ -1,0 +1,9 @@
+name: radiator
+owner: team-platform
+toolchains: [helm]
+criticality: normal
+# The chart ships both images, so a change to either re-renders and
+# re-deploys it.
+dependsOn: [radiator-api, radiator-web]
+consumes: []
+contract: []
