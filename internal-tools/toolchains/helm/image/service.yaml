@@ -1,0 +1,6 @@
+name: ci-helm
+owner: team-platform
+toolchains: [container]
+criticality: normal
+consumes: []
+contract: []
