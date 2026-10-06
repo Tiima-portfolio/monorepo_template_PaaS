@@ -11,11 +11,13 @@ on:
 permissions:
   contents: read
   issues: write
+  packages: read
 
 env:
   NX_DAEMON: "false"
   NX_NO_CLOUD: "true"
   FACTORY_OUT: factory-out
+  FACTORY_TOOLCHAIN_IMAGES: "true"
 
 jobs:
   full:
@@ -32,8 +34,11 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - run: uv run --frozen --project ci/factory ci/factory/run.py mise-all > mise.local.toml
-      - uses: jdx/mise-action@94c60b39bc2d90ab2f9bab27f38d3cc4812c1834 # v5.1.0
+      # Toolchain targets run in the images pinned in each toolchain.yaml.
+      - name: Log in to GHCR for the toolchain images
+        env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: factory-metrics.json
