@@ -1,0 +1,33 @@
+# Helm charts. A project that lists [helm] gets its chart linted, rendered,
+# packaged as a release asset, and deployed on PRs. There is no cluster yet, so
+# deploy renders the manifests for the PR's namespace and stops where
+# `helm upgrade --install` would run. A chart takes its image tag from
+# .Values.global.imageTag, which deploy sets to the PR's commit.
+# CI runs these targets in this image (image/ here), pinned by digest.
+image: ghcr.io/tiima-portfolio/monorepo_template_paas/ci-helm:7ff004ab914e@sha256:4b94164a982a46daa70486942b043a516412351752bb33bb224ea045ae00e160
+setup:
+  mise:
+    helm: "4.3.0"
+targets:
+  lint:
+    command: helm lint --strict .
+    inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**"]
+  test:
+    # The chart renders with its default values.
+    command: helm template {name} . >/dev/null
+    inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**"]
+  build:
+    command: mkdir -p dist && helm template {name} . >dist/{name}.yaml
+    inputs: ["{projectRoot}/**/*", "!{projectRoot}/dist/**"]
+    outputs: ["{projectRoot}/dist/{name}.yaml"]
+  package:
+    # FACTORY_VERSION is set by the release job; local packages stay 0.0.0.
+    command: mkdir -p dist && helm package . --version "${FACTORY_VERSION:-0.0.0}" --app-version "${FACTORY_VERSION:-0.0.0}" -d dist
+    outputs: ["{projectRoot}/dist/{name}-*.tgz"]
+  # Simulated: renders the PR's manifests into dist/deploy/ and echoes.
+  # FACTORY_PR and FACTORY_SHA are set by the factory's verify job.
+  deploy:
+    command: >-
+      ns="{name}-pr-${FACTORY_PR:-local}" && mkdir -p dist/deploy && helm template {name} . --namespace "$ns" --set-string global.imageTag="${FACTORY_SHA:-dev}" >dist/deploy/{name}.yaml && echo "Deployment in here: {name} to namespace $ns ($(grep -c '^kind:' dist/deploy/{name}.yaml) objects, image tag ${FACTORY_SHA:-dev})"
+    dependsOn: [lint]
+    cache: false

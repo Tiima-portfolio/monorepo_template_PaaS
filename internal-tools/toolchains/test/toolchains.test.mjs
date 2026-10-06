@@ -145,3 +145,21 @@ test('a target can name its own image, and combined targets keep each one', () =
   assert.match(p.targets.build.options.command, / && docker buildx build \.$/);
   assert.equal(p.targets.lint.inputs.filter((i) => i.env).length, 1);
 });
+
+test('a chart gets lint, test, build, package and a simulated deploy', () => {
+  const p = projectFor('internal-services/web/chart/service.yaml', { name: 'web', toolchains: ['helm'] }, loadToolchains());
+  for (const t of ['lint', 'test', 'build', 'package', 'deploy']) assert.ok(p.targets[t], t);
+  const deploy = p.targets.deploy;
+  assert.equal(deploy.cache, false);
+  assert.match(deploy.options.command, /helm template web \. --namespace "\$ns" --set-string global\.imageTag=/);
+  assert.match(deploy.options.command, /web-pr-\$\{FACTORY_PR:-local\}/);
+  assert.match(deploy.options.command, /echo "Deployment in here: web/);
+  assert.doesNotMatch(deploy.options.command, /helm (upgrade|install)/);
+});
+
+test('new-service creates a chart from the helm template', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'svc-'));
+  const dest = createService({ name: 'board', lang: 'helm', owner: 'team-platform', kind: 'internal-service', root });
+  assert.match(fs.readFileSync(path.join(dest, 'Chart.yaml'), 'utf8'), /^name: board$/m);
+  assert.match(fs.readFileSync(path.join(dest, 'values.yaml'), 'utf8'), /imageTag/);
+});
