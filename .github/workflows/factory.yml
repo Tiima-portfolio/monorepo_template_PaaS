@@ -218,6 +218,15 @@ jobs:
       - name: Diff coverage and ratchet
         run: |
           FACTORY_GATE=gate/gate.json FACTORY_METRICS_FILE=factory-metrics.json $FACTORY_RUN diff-coverage
+      # Simulated preview deploy on PRs: each affected project with a Helm
+      # chart renders its manifests for the namespace <chart>-pr-<number> and
+      # echoes "Deployment in here" (internal-tools/toolchains/helm). There is
+      # no cluster yet. The merge queue and main don't deploy.
+      - name: Deploy preview (simulated)
+        if: github.event_name == 'pull_request'
+        env:
+          FACTORY_PR: ${{ github.event.pull_request.number }}
+        run: npx nx affected -t deploy --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
       - name: Record main's coverage
         if: github.event_name == 'push'
         run: $FACTORY_RUN metrics factory-metrics.json "$FACTORY_OUT/coverage-totals.json" "$GITHUB_SHA"
