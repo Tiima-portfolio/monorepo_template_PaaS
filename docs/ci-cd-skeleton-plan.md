@@ -1,6 +1,6 @@
 # Monorepo CI/CD Skeleton Plan
 
-> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-05.
+> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-06.
 
 **Contents**
 
@@ -27,6 +27,7 @@
 14. [Developer self-service](#developer-self-service)
 15. [Air-gapped environment](#air-gapped-environment)
 16. [Shared BuildKit service](#shared-buildkit-service)
+17. [Example internal service: the radiator](#example-internal-service-the-radiator)
 
 ## Goal and scope
 
@@ -40,7 +41,7 @@ It delivers:
 - A squash-only merge queue that keeps `main` a straight line and always releasable.
 - Release artifacts published from `main`: container images and versioned packages that others can pick up.
 
-It does not deploy anything. Delivery ends when a versioned artifact is available.
+It does not deploy anything for real. Delivery ends when a versioned artifact is available; a project with a Helm chart also gets a simulated preview deploy on each PR, which renders its manifests and stops there (see [Example internal service: the radiator](#example-internal-service-the-radiator)).
 
 ## Decisions and constraints
 
@@ -56,7 +57,7 @@ It does not deploy anything. Delivery ends when a versioned artifact is availabl
 | Merge queue | Yes, with batching |
 | Ownership | Owners per folder in service.yaml, enforced by admission; CODEOWNERS one line per boundary |
 | Workflows | Shared reusable workflows, not one copy per service |
-| Delivery | Publish available artifacts; no deploy stage |
+| Delivery | Publish available artifacts; PRs get an optional, simulated preview deploy for projects with a Helm chart (no cluster) |
 | Agent PRs | Guardrails required |
 | Merge requests | Small PRs, since each squashed PR is one visible commit on main |
 | Network | Air-gapped; GitHub is the only outside service |
@@ -769,3 +770,45 @@ flowchart LR
 | Container toolchain switches by config | Internal tool | #130 |
 | CI jobs pass the settings | CI | #131 |
 | Runner pools point at the service | Platform | #132 |
+
+## Example internal service: the radiator
+
+The radiator is a small internal dashboard that shows the factory's state on a screen: build status per service, merge queue depth and recent releases. It exists to show a complete service going through the factory: a backend, a frontend, container images, a Helm chart and a deploy on every PR. Its data is mock data for now.
+
+It lives in `internal-services/radiator/`, one sub-boundary, as three projects:
+
+| Project | Folder | Toolchains | What it is |
+| --- | --- | --- | --- |
+| `radiator-api` | `api/` | `[python, container]` | FastAPI app serving the data under `/api`, in a non-root image with its locked dependencies |
+| `radiator-web` | `web/` | `[typescript, container]` | The dashboard page in plain TypeScript, compiled by `tsc` and served by a non-root nginx image |
+| `radiator` | `chart/` | `[helm]` | The Helm chart: both Deployments and Services, and an Ingress sending `/api` to the API and the rest to the web image |
+
+The chart depends on both images in `service.yaml`, so a change to either one re-renders and re-deploys the chart.
+
+```mermaid
+flowchart LR
+  PR["<b>PR</b> touches radiator"]
+  B["<b>Build and test</b><br/>wheel, tsc, images,<br/>container smoke tests"]
+  D["<b>Deploy (simulated)</b><br/>helm template for<br/>radiator-pr-&lt;n&gt;"]
+  E["echo Deployment in here"]
+  PR --> B --> D --> E
+```
+
+**A simulated PR deploy changes the earlier "no deploy stage" decision.** There is no cluster, so the deploy stops after rendering:
+
+- **A `helm` toolchain.** `internal-tools/toolchains/helm/` adds `lint` (`helm lint`), `test` (the chart renders), `package` (`helm package`, released like any other artifact) and `deploy`. Like every toolchain it runs in its own pinned image, `ci-helm`.
+- **`deploy` renders, then echoes.** It runs `helm template` for the namespace `<chart>-pr-<PR number>` with the PR's commit as the image tag, keeps the manifests in `dist/`, and prints `Deployment in here` where `helm upgrade --install` would go. Swapping that line for a real install is the only change a real cluster needs.
+- **Only on PRs.** The verify job runs `nx affected -t deploy` on pull requests, after build and tests. The merge queue and `main` skip it: a PR preview is the only environment.
+- **Optional.** A project opts in by listing `helm` in its toolchains. Projects without a chart are unaffected.
+
+Delivered as one PR per step, each linked to its issue:
+
+| Step | Boundary | Issue |
+| --- | --- | --- |
+| This section | Docs | [#180](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/180) |
+| `ci-helm` toolchain image | Internal tool | [#181](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/181) |
+| `helm` toolchain with the simulated `deploy` | Internal tool | [#182](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/182) |
+| `radiator-api` backend | Internal service | [#183](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/183) |
+| `radiator-web` frontend | Internal service | [#184](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/184) |
+| Helm chart | Internal service | [#185](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/185) |
+| PRs run the simulated deploy | CI | [#186](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/186) |
