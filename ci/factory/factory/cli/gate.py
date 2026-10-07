@@ -22,10 +22,11 @@ from ..deps import check_dependencies
 from ..evidence import required_evidence
 from ..flaky import active_quarantine
 from ..graph import affected as affected_projects
-from ..graph import build_graph
+from ..graph import build_graph, owners_of, project_files
 from ..identity import build_identity
 from ..identity import environment as identity_environment
 from ..identity import policy_version, toolchain_version, validator_version
+from ..references import undeclared
 from ..guardrails import agent_guardrails, owner_checks
 from ..mise import mise_toml
 from ..network import network_problems
@@ -168,6 +169,11 @@ def main(argv):
     if aff["graph"]:
         problems = [*aff["graph"]["unresolved"], *check_dependencies(aff["graph"])]
         record("dependency-rules", not problems, "; ".join(problems) if problems else "dependency directions and no cycles")
+        # The affected set only knows declared dependencies: look for real ones nobody declared.
+        scanned = {n: project_files(head, aff["graph"]["nodes"][n]["data"]["root"]) for n in owners_of(files, aff["graph"])}
+        missing = undeclared(aff["graph"], scanned)
+        shown = [f"{r['source']} uses {r['target']} ({r['kind']} in {r['file']})" for r in missing]
+        record("declared-dependencies", not missing, "; ".join(shown[:10]) if shown else "every reference between projects is declared")
 
     # With nothing affected the verify job doesn't run; say so in the evidence.
     if not aff["names"]:

@@ -104,3 +104,20 @@ def affected(files: list[str], head: dict, base: dict | None = None) -> list[str
             seen.add(n)
             todo.extend(reverse.get(n, ()))
     return sorted(n for n in seen if n in head["nodes"])
+
+
+def owners_of(files: list[str], graph: dict) -> list[str]:
+    """The projects that own at least one of the files."""
+    return sorted({o for f in files if (o := _owner(f, graph))})
+
+
+def project_files(ref: str, root: str, limit: int = 1500, max_bytes: int = 200_000) -> dict[str, str]:
+    """A project's text files (relative path -> text) at a commit, read as data."""
+    out = {}
+    for f in subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", ref, "--", root], check=True, capture_output=True, text=True).stdout.split("\0"):
+        if not f or len(out) >= limit:
+            continue
+        text = _show(ref, f)
+        if text is not None and len(text) <= max_bytes and "\0" not in text:
+            out[f[len(root) + 1:]] = text
+    return out

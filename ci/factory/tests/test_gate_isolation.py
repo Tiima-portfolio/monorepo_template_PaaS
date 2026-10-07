@@ -33,9 +33,9 @@ def pr(tmp_path, monkeypatch):
     base = git(repo, "rev-parse", "HEAD")
     git(repo, "switch", "-qc", "pr")
 
-    def finish(*paths):
+    def finish(*paths, content="changed\n"):
         for p in paths:
-            write(p, "changed\n")
+            write(p, content)
         git(repo, "add", "-A")
         git(repo, "commit", "-qm", "feat: change")
         head = git(repo, "rev-parse", "HEAD")
@@ -63,3 +63,13 @@ def test_a_package_json_change_is_not_executed_and_affects_everything(pr):
     result = pr("product/services/catalog/foo.py", "package.json")
     assert set(result["affected"]) == {"catalog", "orders"}
     assert result["tier"] in {"R1", "R2", "R3"}
+
+
+def test_gate_flags_a_reference_nobody_declared(pr, tmp_path):
+    # catalog starts importing orders, which it never declared. Orders changes would
+    # then not rebuild catalog, so the affected set could miss it.
+    result = pr("product/services/catalog/client.py", content="from orders import api\n")
+    assert "catalog" in result["affected"]
+    record = json.loads((tmp_path / "out/evidence/declared-dependencies.json").read_text())
+    assert record["status"] == "fail"
+    assert "catalog uses orders" in record["details"]

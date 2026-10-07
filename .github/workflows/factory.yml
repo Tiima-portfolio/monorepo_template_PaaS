@@ -190,6 +190,10 @@ jobs:
           tls: ${{ github.event_name == 'push' && secrets.FACTORY_BUILDKIT_MAIN_TLS || github.event_name != 'push' && secrets.FACTORY_BUILDKIT_TLS || '' }}
           cache-ref: ${{ vars.FACTORY_BUILDKIT_CACHE_REF }}
           cache-write: ${{ github.event_name == 'push' }}
+      # The gate computed the affected set in Python; this checks Nx sees the same graph.
+      - name: Graph parity
+        # The command comes from the base branch, so the PR that adds it has none yet.
+        run: $FACTORY_RUN graph-parity || echo "::warning::graph-parity did not run (the base branch has no such command yet)"
       - name: Build
         run: |
           set +e
