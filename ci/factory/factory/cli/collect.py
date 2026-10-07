@@ -7,7 +7,6 @@ Env: GITHUB_REPOSITORY, GITHUB_SHA, GH_TOKEN, FACTORY_EVIDENCE_KEY (optional
 HMAC key), FACTORY_EVIDENCE_S3_URI (optional, e.g. s3://factory-evidence).
 """
 
-import json
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -16,6 +15,7 @@ from pathlib import Path
 from ..collect import index_sql, link_to_main, sign
 from ..identity import policy_version, validator_version
 from ..policy import CODE_DIR, policy_dir
+from ..scm import get_scm
 from .admission import now_iso
 from .common import append, env, git, read_json, run, write_json
 
@@ -31,19 +31,16 @@ def main(argv):
     repo = env.get("GITHUB_REPOSITORY")
     sha = env.get("GITHUB_SHA")
     main_commit = {"sha": sha, "tree": git("rev-parse", f"{sha}^{{tree}}")}
-    pr = try_run(lambda: json.loads(run("gh", "api", f"repos/{repo}/commits/{sha}/pulls", "--jq",
-                                        "[.[] | select(.merged_at != null)] | first | {number, head: .head.sha}")))
+    scm = get_scm()
+    pr = scm.change_for_commit(sha)
 
     pr_bundle = None
     if not (pr or {}).get("number"):
         # A commit on main without a PR bypassed the factory: break-glass.
         result = {"ok": False, "tree_match": False, "problems": ["commit reached main without a PR: recorded as a break-glass override"]}
     else:
-        run_id = try_run(lambda: run("gh", "api", f"repos/{repo}/actions/workflows/factory.yml/runs?head_sha={pr['head']}&event=pull_request&per_page=30",
-                                     "--jq", '[.workflow_runs[] | select(.conclusion == "success")] | first | .id').strip())
         folder = tempfile.mkdtemp(prefix="evidence-", dir=".")
-        if run_id and run_id != "null":
-            try_run(lambda: run("gh", "run", "download", run_id, "--repo", repo, "-n", "factory-evidence", "-D", folder))
+        scm.download_evidence(pr["head"], folder)
         pr_bundle = read_json(Path(folder, "bundle.json"))
         result = link_to_main(pr_bundle, main_commit, pr["head"],
                               {"policy": policy_version(policy_dir()), "validator": validator_version(CODE_DIR)})
