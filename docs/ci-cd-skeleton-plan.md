@@ -816,7 +816,7 @@ Delivered as one PR per step, each linked to its issue:
 
 ## Production hardening
 
-The architecture stays as designed. This section is the work that turns the template into something an organization can run for 100 developers and 300 agents: closing the places where PR-controlled code can run next to trusted decisions, proving the assumptions the scaling model rests on, and keeping the factory core independent of GitHub. It was derived from an external review of the repository.
+The architecture stays as designed. This section is the work that turns the template into something an organization can run for 100 developers and 300 agents: closing the places where PR-controlled code can run next to trusted decisions, proving the assumptions the scaling model rests on, and keeping the factory core independent of any one platform's API. It was derived from an external review of the repository.
 
 **The template stays safe by default.** New evidence starts in shadow and does not block, because a template can't know what an adopting organization can reliably enforce. That is a property of the template, not a gap in the design. What hardening adds is a way to see the intended end state ([policy maturity profiles](#policy-maturity-profiles)) without turning it on.
 
@@ -928,16 +928,15 @@ The capacity formula assumes independent failures and stable validation time. Re
 
 ### SCM adapter
 
-The factory core (risk, boundaries, evidence, agent trust, admission, capacity logic) must run on GitLab if that is the production platform, so it stops calling `gh` and GitHub JSON directly. It talks to one interface:
+The factory core (risk, boundaries, evidence, agent trust, admission, capacity logic) decides; it must not depend on `gh` or GitHub's JSON. It talks to one interface, [`SCM`](../ci/factory/factory/scm/base.py), so the core can be tested against a fake platform and the platform calls live in one place:
 
 ```text
-Factory core -> SCM adapter -> GitHubAdapter | GitLabAdapter (stub)
-             -> Executor (runners)
-get_change()  get_changed_files()  get_approvals()
-publish_decision()  enqueue_change()  get_job_results()
+Factory core -> SCM adapter -> GitHubAdapter
+get_change()  get_changed_files()  get_approvals()  get_job_results()  get_run()
+publish_decision()  enqueue_change()  and the listings the controllers need
 ```
 
-`GitHubAdapter` implements it with `gh` and the REST API as now. `GitLabAdapter` is an interface stub that documents the mapping (merge request, approvals, merge train, pipeline jobs) and fails loudly until implemented. This repository stays the proving ground.
+`GitHubAdapter` implements it with `gh` and the REST and GraphQL APIs. The repository stays on GitHub. A test fails if `gh` appears in the core outside the adapter, the release job and the ruleset sync, which remain GitHub-specific platform integrations.
 
 ### Later
 
