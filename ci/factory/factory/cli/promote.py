@@ -7,15 +7,14 @@ Promotion of a service with an open escape issue is on hold.
 Env: GITHUB_REPOSITORY, GH_TOKEN. Reads released.json.
 """
 
-import json
 from pathlib import Path
 
 from ..promote import plan_promotions, set_pin
-from .common import env, git, lines, read_json, read_yaml, run
+from ..scm import get_scm
+from .common import git, lines, read_json, read_yaml
 
 
 def main(argv):
-    repo = env.get("GITHUB_REPOSITORY")
     released = read_json("released.json", [])
     if not released:
         print("Nothing released; nothing to promote.")
@@ -25,7 +24,8 @@ def main(argv):
                   for p in lines(git("ls-files", "*pins.yaml")) if p.endswith("/pins.yaml")]
     # Open escape issues name the service as the title's scope, e.g.
     # "escape: fix(orders): ...", or in brackets, "escape: [orders] ...".
-    escapes = json.loads(run("gh", "api", f"repos/{repo}/issues?labels=escape&state=open&per_page=100", "--jq", "[.[].title]") or "[]")
+    scm = get_scm()
+    escapes = [i["title"] for i in scm.list_issues(["escape"])]
     holds = [r["service"] for r in released if any(f"({r['service']})" in t or f"[{r['service']}]" in t for t in escapes)]
     for s in holds:
         print(f"::warning::Promotion of {s} is on hold: it has an open escape.")
@@ -45,7 +45,6 @@ def main(argv):
         git("push", "-q", "origin", branch)
         body = (f"{b['service']} released {b['to']}; {consumer} pinned {b['from']}. This bump runs {consumer}'s own checks "
                 f"and merges through the queue as P4.\n\nPromotes: {b['service']}@{b['to']}")
-        url = run("gh", "pr", "create", "--repo", repo, "--base", "main", "--head", branch, "--label", "ready", "--label", "P4",
-                  "--title", title, "--body", body).strip()
+        url = scm.open_change(branch, title, body, ["ready", "P4"])
         print(f"Opened {url}")
     git("checkout", "-q", start)

@@ -49,7 +49,6 @@ def pr(tmp_path, monkeypatch):
 
     # Anything the gate runs through `run` (Nx, gh) would be PR-controlled or external.
     monkeypatch.setattr(common, "run", lambda *a: pytest.fail(f"the gate ran {a}"))
-    monkeypatch.setattr(gate, "run", lambda *a: pytest.fail(f"the gate ran {a}"))
     return finish
 
 

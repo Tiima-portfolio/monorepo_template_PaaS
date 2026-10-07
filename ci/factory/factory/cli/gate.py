@@ -9,7 +9,6 @@ GITHUB_EVENT_PATH, FACTORY_OVERRIDE_OK ("true" when a factory owner added
 the override label).
 """
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -32,9 +31,10 @@ from ..mise import mise_toml
 from ..network import network_problems
 from ..owners import route
 from ..policy import CODE_DIR, load_policy, policy_dir
+from ..scm import get_scm
 from ..risk import classify, test_only
 from ..test_quality import lint_test_file
-from .common import append, env, evidence_dir, git, git_text, git_yaml, lines, out_dir, read_json, run, to_json, write_json, write_record
+from .common import append, env, evidence_dir, git, git_text, git_yaml, lines, out_dir, read_json, to_json, write_json, write_record
 
 
 def affected(files, base, head):
@@ -192,8 +192,7 @@ def main(argv):
     # Backpressure on agents: open-PR caps and the sponsor's review budget.
     if is_pr and provenance.get("is_agent") and env.get("GITHUB_REPOSITORY"):
         try:
-            open_prs = [{**p, "author": (p.get("author") or {}).get("login")} for p in json.loads(run(
-                "gh", "pr", "list", "--repo", env["GITHUB_REPOSITORY"], "--state", "open", "--limit", "500", "--json", "number,author,reviewDecision"))]
+            open_prs = get_scm().list_open_changes()
             agents = [{**a, "login": re.sub(r"\[bot\]$", "", a["account"])} for a in load_policy("agents")["agents"]]
             agent = next((a for a in agents if author in (a["account"], a["login"])), None)
             problems = agent_backpressure(agent, open_prs, agents, load_policy("teams"), pr.get("number")) if agent else []

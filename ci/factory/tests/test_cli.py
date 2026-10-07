@@ -46,23 +46,20 @@ def test_admission_writes_the_decision_and_bundle(tmp_path, monkeypatch):
 
 def test_queue_controller_skips_a_pr_github_refuses(monkeypatch, capsys):
     from factory.cli import queue
-
-    def pr(id_, number):
-        return {"id": id_, "number": number, "author": {"login": "dev"}, "labels": {"nodes": []},
-                "files": {"nodes": []}, "createdAt": "2026-10-06T00:00:00Z", "isInMergeQueue": False,
-                "commits": {"nodes": []}}
+    from factory.scm import SCMError
 
     calls = []
 
-    def gql(query, **variables):
-        if query == queue.QUERY:
-            return {"data": {"repository": {"pullRequests": {"nodes": [pr("A", 1), pr("B", 2)]}, "mergeQueue": None}}}
-        calls.append(variables["id"])
-        if variables["id"] == "A":
-            raise subprocess.CalledProcessError(1, "gh", stderr="Pull request is not mergeable")
-        return {}
+    class Fake:
+        def list_queue_state(self):
+            return [{"id": "A", "number": 1}, {"id": "B", "number": 2}], []
 
-    monkeypatch.setattr(queue, "gql", gql)
+        def enqueue_change(self, change_id, jump=False):
+            calls.append(change_id)
+            if change_id == "A":
+                raise SCMError("Pull request is not mergeable")
+
+    monkeypatch.setattr(queue, "get_scm", lambda: Fake())
     monkeypatch.setattr(queue, "env", {"GITHUB_REPOSITORY": "o/r"})
     picks = [{"number": 1, "priority": "P3", "jump": False}, {"number": 2, "priority": "P3", "jump": False}]
     monkeypatch.setattr(queue, "select_to_enqueue", lambda *a, **k: {"picks": picks, "waiting": []})

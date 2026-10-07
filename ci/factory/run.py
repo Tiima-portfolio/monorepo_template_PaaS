@@ -10,7 +10,7 @@ import sys
 
 COMMANDS = [
     "simulate-queue",
-    "gate", "admission", "graph-parity", "prefetch-images", "verify-record", "test-run", "diff-coverage", "mutation", "regression",
+    "gate", "admission", "scm", "graph-parity", "prefetch-images", "verify-record", "test-run", "diff-coverage", "mutation", "regression",
     "release", "queue", "promote", "collect", "rulesets", "metrics", "metrics-report", "mise-all",
     "agent-trust",
 ]
