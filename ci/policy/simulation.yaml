@@ -1,0 +1,43 @@
+# Assumptions for the merge queue load simulator (factory/simulate.py,
+# `run.py simulate-queue`). Every number is an assumption to replace with
+# measurements from your own runs; the capacity doc explains the queue model.
+
+queue:
+  entries_building: 5            # max_entries_to_build in .github/rulesets/merge-queue.json
+  max_entries_to_merge: 5
+  runner_slots: 40               # concurrent jobs in the queue/main runner pool
+  run_minutes: 6                 # median queue run for one entry, before the affected-project factor
+  # Per-entry failure: a real break the PR checks missed, and flakes (a failed
+  # test is retried once, so a run fails on a flake with probability flake^2).
+  defect_rate: 0.02
+  flake_rate: 0.05
+
+pr:
+  runner_slots: 120              # concurrent jobs in the PR runner pool
+  verify_minutes: { R0: 3, R1: 8, R2: 15, R3: 25 }   # median verify, before the affected-project factor
+  verify_fail_rate: 0.10         # PRs whose own checks fail; the author fixes and pushes again
+  fix_minutes: 45
+
+# Share of PRs per risk tier.
+tier_mix: { R0: 0.20, R1: 0.55, R2: 0.20, R3: 0.05 }
+# Affected projects per PR: [probability, low, high].
+affected:
+  - [0.80, 1, 3]
+  - [0.15, 4, 12]
+  - [0.045, 13, 62]        # a shared library change
+  - [0.005, 100, 100]      # a toolchain update: everything
+# Each affected project adds this share to the run time, up to a cap.
+affected_time_factor: { per_project: 0.05, cap: 3.0 }
+
+people:
+  agent_share: 0.70              # share of PRs from agents (priority P3, the rest P1)
+  # Arrivals: the daily total is spread over the day for humans (working hours) and
+  # evenly for agents.
+  human_hours_utc: { from: 7, to: 16 }
+  bursts:
+    - { at_utc: 9, prs: 150, label: "overnight agent changes become ready" }
+
+github:
+  api_calls_per_pr: 30           # gate, admission, comments, labels, queue calls
+  controller_calls_per_cycle: 6  # plus one per waiting PR; the controller runs every 10 minutes
+  cache_mb_per_run: 400          # layer cache read per verify or queue run
