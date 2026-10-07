@@ -3,27 +3,17 @@ import subprocess
 
 import pytest
 
-from factory.scm import SCM, GitHubAdapter, GitLabAdapter, SCMError, get_scm
+from factory.scm import SCM, GitHubAdapter, SCMError, get_scm
 from factory.scm import github as gh_module
 
 
-def test_every_interface_method_is_implemented_by_both_adapters():
-    for adapter in (GitHubAdapter, GitLabAdapter):
-        for name in SCM.__abstractmethods__:
-            assert callable(getattr(adapter, name)), (adapter, name)
-
-
-def test_the_gitlab_stub_fails_loudly_instead_of_returning_nothing():
-    gl = GitLabAdapter("1")
-    with pytest.raises(NotImplementedError, match="get_approvals"):
-        gl.get_approvals(1)
-    with pytest.raises(NotImplementedError, match="enqueue_change"):
-        gl.enqueue_change("x")
+def test_every_interface_method_is_implemented_by_the_github_adapter():
+    for name in SCM.__abstractmethods__:
+        assert callable(getattr(GitHubAdapter, name)), name
 
 
 def test_the_platform_is_chosen_by_environment():
     assert isinstance(get_scm({"GITHUB_REPOSITORY": "o/r"}), GitHubAdapter)
-    assert isinstance(get_scm({"FACTORY_SCM": "gitlab"}), GitLabAdapter)
     with pytest.raises(ValueError):
         get_scm({"FACTORY_SCM": "svn"})
 
