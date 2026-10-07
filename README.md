@@ -10,6 +10,8 @@ Humans and agents create changes. The factory decides, from evidence and policy,
 - **A merge queue run like a service.** Priorities, backpressure, rule changes merged alone and an automatic revert when `main` goes red.
 - **Everything is policy in files.** The rules live in [`ci/policy/`](ci/policy/) and the code that applies them in [`ci/factory/`](ci/factory/), with tests. Changing a rule is a reviewed PR.
 
+> **Safe template defaults.** This repository provides safe defaults for a template. Shadow checks are intentionally non-blocking until an adopting organization has calibrated them against its own codebase, test quality and delivery process. A shadow check is not missing enforcement: a template must not assume what a random adopter can reliably enforce. The path is **template, observe, calibrate, enforce** (see [Evidence](#evidence)).
+
 The idea behind it is the [Evidence-Driven Software Factory](docs/evidence_driven_software_factory.md); the design this repo implements is the [CI/CD skeleton plan](docs/ci-cd-skeleton-plan.md).
 
 **Contents:** [How a change gets in](#how-a-change-gets-in) · [Risk tiers](#risk-tiers) · [Evidence](#evidence) · [The merge queue](#the-merge-queue) · [How many PRs it can merge](#how-many-prs-it-can-merge) · [Agents](#agents) · [When things go wrong](#when-things-go-wrong) · [Layout](#layout) · [Working in the repo](#working-in-the-repo) · [Setting up a copy](#setting-up-a-copy-of-this-template)
@@ -76,11 +78,19 @@ Evidence is a record that a check ran on the exact commit, and its result. [`evi
 
 Some evidence is added on top of any tier, all enforced: agent provenance and trust level on agent PRs, the owner's own checks from `guardrails.yaml` when their paths change, and on an `escape-fix` PR a regression test that fails without the fix. Removing tests adds the owner's approval.
 
+**Adopting it: template, observe, calibrate, enforce.**
+
+1. **Template.** The defaults here. Build, unit tests, lint and the boundary rules enforce; everything newer is shadow.
+2. **Observe.** Run the factory on your own PRs. Every shadow check is recorded on every PR and shown in the admission comment, and admission says what the `production-example` profile would have blocked.
+3. **Calibrate.** Fix the false positives you find, tune thresholds in [`ci/policy/`](ci/policy/) and raise the test quality the checks need.
+4. **Enforce.** Move one check at a time from shadow to enforce in a reviewed PR, once its shadow results show no false blocks. The [`production-example` profile](ci/policy/evidence.yaml) shows the intended end state; it is never active by default.
+
 How the evidence stays trustworthy:
 
-- **Judged from the base branch.** The gate and admission code come from `main`, not the PR.
+- **Judged from the base branch.** The gate and admission code come from `main`, not the PR, and the gate runs none of the PR's code: it reads the PR as data from git objects.
 - **Results come from GitHub.** Admission reads each job's conclusion from the GitHub API, not just the record the job wrote.
 - **Carried to `main` only when proven.** After a merge, the [`evidence`](.github/workflows/evidence.yml) collector links the PR's evidence to the commit on `main` only if their git trees match, signs the bundle (HMAC-SHA256) and writes it to a write-once bucket when one is configured ([`platform/evidence/`](platform/evidence/)). A commit on `main` with no queue evidence is flagged as a break-glass merge.
+- **Verify is treated as hostile.** It runs the PR's code, so registry credentials are removed before that code starts and the [trust zone templates](platform/zones/) keep PR execution apart from the trusted factory.
 - **Only `main` writes caches.** PR and queue builds read the Nx and BuildKit caches but never write them, so one PR can't plant a wrong result.
 
 ## The merge queue
