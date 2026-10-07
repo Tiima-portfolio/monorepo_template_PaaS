@@ -85,3 +85,14 @@ def test_evidence_must_come_from_the_factory_workflow_for_this_commit():
     assert "not the factory workflow" in other[0]
     stale = job_problems(sha, ok_jobs, {"path": ".github/workflows/factory.yml", "head_sha": "b" * 40})
     assert re.search("another commit", stale[0])
+
+
+def test_reports_what_the_production_example_profile_would_block():
+    req = [{"name": "boundary", "mode": "enforce", "example_mode": "enforce"},
+           {"name": "diff-coverage", "mode": "shadow", "example_mode": "enforce"},
+           {"name": "mutation-score", "mode": "shadow", "example_mode": "shadow"}]
+    records = [passed("boundary"), {"check": "diff-coverage", "status": "fail", "sha": sha}, {"check": "mutation-score", "status": "fail", "sha": sha}]
+    r = decide(sha, "R1", req, records)
+    assert r["allowed"]
+    assert r["would_block"] == ["diff-coverage"]
+    assert "`production-example` profile would also block on diff-coverage" in r["summary"]
