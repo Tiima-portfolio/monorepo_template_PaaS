@@ -10,6 +10,7 @@ automatically; the CI/platform team applies it with its own tooling.
 | Nx remote cache | [`cache/`](cache/) | `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` and its access tokens |
 | Write-once evidence bucket | [`evidence/`](evidence/) | The evidence collector (issue #21) |
 | Package and image mirrors | [`mirror/`](mirror/) | Toolchains, through standard environment variables |
+| Trust zones: namespaces, service accounts, network policies | [`zones/`](zones/) | Separates PR code from the trusted factory |
 | Shared BuildKit service | [`internal-services/buildkit/deploy/`](../internal-services/buildkit/deploy/) | `FACTORY_BUILDKIT_*` on the runner pods, read by the container toolchain |
 
 ## Trust boundaries
