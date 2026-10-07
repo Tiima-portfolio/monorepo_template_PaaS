@@ -50,6 +50,13 @@ def read_yaml(path):
     return yaml.safe_load(Path(path).read_text())
 
 
+def git_text(ref: str, file: str) -> str | None:
+    """A file as it is at a commit, or None when it isn't there. The gate reads
+    the PR only this way, never from the working tree."""
+    r = subprocess.run(["git", "show", f"{ref}:{file}"], capture_output=True, text=True, errors="replace")
+    return r.stdout if r.returncode == 0 else None
+
+
 def git_yaml(ref: str, file: str):
     """A YAML file as it is at a commit, or None when it isn't there."""
     try:

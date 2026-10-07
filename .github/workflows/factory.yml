@@ -59,25 +59,21 @@ jobs:
           ref: ${{ env.FACTORY_BASE }}
           path: .factory
           sparse-checkout: ci
-      # The base-branch copy is code only. Without its project.json files Nx
-      # doesn't see it as a second set of projects next to the PR's own.
-      - run: find .factory -name project.json -delete
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .node-version
-          cache: npm
-      - run: npm ci --no-audit --no-fund
+      # The gate runs nothing the PR controls: no npm, Nx, build or script from
+      # the PR checkout. It reads the PR as data from git objects (diffs,
+      # service.yaml, project.json), with the base branch's code, so a PR that
+      # crosses boundaries is rejected before any of its code could run.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Use gate code from the base branch
         run: |
-          if [ -f .factory/ci/factory/run.py ]; then
+          if [ -f .factory/ci/factory/factory/graph.py ]; then
             code=.factory/ci
           else
-            echo "::warning::The base branch has no gate yet; using this PR's gate code (bootstrap only)."
+            echo "::warning::The base branch has no isolated gate yet; using this PR's gate code (bootstrap only)."
             code=ci
           fi
           echo "FACTORY_CODE=$code" >> "$GITHUB_ENV"
-          echo "FACTORY_RUN=uv run --frozen --project $code/factory $code/factory/run.py" >> "$GITHUB_ENV"
+          echo "FACTORY_RUN=uv run --frozen --no-config --project $code/factory $code/factory/run.py" >> "$GITHUB_ENV"
       - name: Check who added the override label
         if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'boundary-override')
         env:
