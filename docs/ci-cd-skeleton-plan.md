@@ -1,6 +1,6 @@
 # Monorepo CI/CD Skeleton Plan
 
-> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-06.
+> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-07.
 
 **Contents**
 
@@ -28,6 +28,7 @@
 15. [Air-gapped environment](#air-gapped-environment)
 16. [Shared BuildKit service](#shared-buildkit-service)
 17. [Example internal service: the radiator](#example-internal-service-the-radiator)
+18. [Production hardening](#production-hardening)
 
 ## Goal and scope
 
@@ -812,3 +813,135 @@ Delivered as one PR per step, each linked to its issue:
 | `radiator-web` frontend | Internal service | [#184](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/184) |
 | Helm chart | Internal service | [#185](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/185) |
 | PRs run the simulated deploy | CI | [#186](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/186) |
+
+## Production hardening
+
+The architecture stays as designed. This section is the work that turns the template into something an organization can run for 100 developers and 300 agents: closing the places where PR-controlled code can run next to trusted decisions, proving the assumptions the scaling model rests on, and keeping the factory core independent of GitHub. It was derived from an external review of the repository.
+
+**The template stays safe by default.** New evidence starts in shadow and does not block, because a template can't know what an adopting organization can reliably enforce. That is a property of the template, not a gap in the design. What hardening adds is a way to see the intended end state ([policy maturity profiles](#policy-maturity-profiles)) without turning it on.
+
+| Order | Item | Boundary | Issue |
+| --- | --- | --- | --- |
+| 1 | [Gate runs no PR-controlled code](#the-gate-runs-no-pr-controlled-code) | CI | [#208](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/208) |
+| 2 | [Verify is hostile: trusted and untrusted zones](#verify-is-hostile-trusted-and-untrusted-execution) | CI, platform | [#211](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/211), [#212](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/212) |
+| 3 | [Dependency graph validation](#dependency-graph-validation) | CI | [#215](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/215) |
+| 4 | [Policy maturity profiles](#policy-maturity-profiles) and README statement | CI, docs | [#213](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/213), [#214](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/214) |
+| 5 | [Evidence identity](#evidence-identity) | CI | [#216](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/216) |
+| 6 | [Metric-driven agent trust](#metric-driven-agent-trust) | CI | [#217](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/217) |
+| 7 | [Queue load simulation](#queue-load-simulation) | CI | [#218](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/218) |
+| 8 | [SCM adapter](#scm-adapter) | CI | [#219](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/219) |
+| Later | [Untrusted PR cache and real deployment](#later) | | documented only |
+
+### Two trust zones
+
+Everything that runs in a PR can be malicious, so the design has two zones, and the zone is a security boundary, not a runner label.
+
+```mermaid
+flowchart LR
+  subgraph T["Trusted factory zone"]
+    G["Gate"] --> AD["Admission"]
+    AD --> EV["Evidence signing"]
+    EV --> RL["Release"]
+    AD --> MC["Merge control"]
+  end
+  subgraph U["PR execution zone"]
+    VF["Verify: lint, build, tests,<br/>mutation, container builds"]
+  end
+  PRG["PR git objects<br/>read as data"] --> G
+  VF -->|"artifacts only; judged by GitHub's job conclusion"| AD
+```
+
+| | Trusted factory zone | PR execution zone |
+| --- | --- | --- |
+| Runs | Gate, admission, evidence collector and signing, release, queue controller | The PR's lint, build, tests, mutation runs and container builds |
+| Code comes from | The base branch | The PR |
+| Credentials | Factory App key, signing key, write access to caches and registry | None that outlive the job; no production secrets; read-only package and image access |
+| Cache | Writes the trusted cache (`main` only) | Reads the trusted cache, writes nothing trusted |
+| Lifetime | Long-lived runners allowed | Ephemeral: the runner or pod is destroyed after each job |
+
+### The gate runs no PR-controlled code
+
+The gate used to check out the PR and run `npm ci` and Nx there before the base branch's rules had classified it. A PR that crossed boundaries (product code plus `package.json`) was rejected correctly, but only after its install had run.
+
+The gate now takes the PR as data and nothing else:
+
+- **Git objects, not the working tree.** Changed paths come from `git diff`; `service.yaml`, `project.json`, the files tests are linted from, and the toolchain setup are read with `git show` at the PR's commit.
+- **The graph and the affected set are computed in Python** from those declarations ([`graph.py`](../ci/factory/factory/graph.py)), the same graph the Nx plugin builds. No npm, Nx, shell script, interpreter or container build from the PR runs in the gate job.
+- **Conservative where Nx is smarter.** A change to `nx.json`, `package.json`, `package-lock.json`, `.node-version` or the Nx plugin affects every project. A project the PR deletes still counts as changed, and so do the projects that depended on it. A project too many costs compute; a project too few ships a defect.
+- **The gate's own code runs isolated** with `uv run --frozen --no-config` from the base branch, so a config file in the PR can't change how it starts.
+- **Bootstrap.** While the base branch has no isolated gate, the workflow falls back to the PR's gate code, with a warning. That happens once, in the PR that introduces it, which is R3 and needs a human.
+
+Verify still runs the Nx graph itself, as hostile code. The [validation suite](#dependency-graph-validation) keeps the two graphs from disagreeing.
+
+### Verify is hostile: trusted and untrusted execution
+
+Verify has to run the PR's code. The design question is what that code can reach.
+
+- **No registry login in the PR's reach.** Toolchain images are pulled before any PR command runs, and the Docker credentials are removed from the runner before the first PR command. The job token has `packages: read` only.
+- **BuildKit.** The BuildKit client key is written to the runner for the job. Where it can't be avoided, the PR instance is the read-only one (PRs and the queue read the layer cache, only `main` writes), its key is scoped to that instance, short-lived, and the instance is reachable only from the PR runner pool. A PR that steals it can read a cache of public-to-the-repo content and nothing else.
+- **Separate runner pools, separate namespaces.** Templates in `platform/` describe, and apply nothing: a namespace for PR execution and one for the trusted factory, a service account per zone, and network policies. PR pods get DNS, the package mirror and the BuildKit PR instance; no route to the trusted namespace, the evidence bucket, the cluster API or cloud metadata. Pods are destroyed after one job. Distinct node pools are an option for organizations that want hardware separation.
+- **Results are not trusted.** Admission already reads job conclusions from GitHub. Records and measurements from the PR zone are inputs, never decisions.
+
+### Dependency graph validation
+
+The scaling model depends on `nx affected` being right. A false positive costs compute and a false negative ships a defect, so the graph is a safety property and gets more tests than the orchestration around it.
+
+A validation suite runs the change analyzer on a fixture repository with deliberately awkward cases and asserts the blast radius: dynamic imports, generated sources, Node workspace dependencies, OpenAPI consumers, protobuf generation, container `COPY` paths, Helm values and templates, shared generated code, and runtime `consumes` relationships. Each case is also mutated (an edge removed, a path renamed) to check the analyzer never reports less than before. The same suite compares the Python graph with `nx graph` on the real workspace and fails on any difference.
+
+### Policy maturity profiles
+
+Evidence modes come from a profile, so the intended end state is visible without being active:
+
+```text
+template defaults  ->  observe  ->  organization calibrates  ->  enforce
+```
+
+| Profile | Used when | Evidence |
+| --- | --- | --- |
+| `template` | Default. Always active in this repository | The modes in `evidence.yaml` today: new evidence in shadow |
+| `production-example` | Never active by default; an organization copies it as a starting point | Dependency rules, diff coverage, contract tests and selected integration tests enforce; broad integration and owner approval enforce for R3; mutation score stays shadow longer |
+
+The profile is named in one place in `ci/policy/`, a shadow-to-enforce change stays a reviewed PR, and a check that records what each profile would have blocked lets an organization see the effect before it flips anything. The README says plainly that shadow checks are safe template defaults, not unfinished enforcement.
+
+### Evidence identity
+
+Evidence is identified, not just attached to a commit:
+
+```text
+Evidence = repository + tree SHA + commit SHA + policy version + toolchain version
+         + execution environment + validator version + result
+```
+
+Admission then means: the required evidence exists for this exact state under this exact policy. Policy version is a hash of `ci/policy/`; toolchain version is the pinned image digests; execution environment is the runner pool and image; validator version is the factory code revision that produced the record. Evidence made under another policy or toolchain does not satisfy admission, which matters when hundreds of agent revisions are in flight and a rule change lands between them.
+
+### Metric-driven agent trust
+
+The levels stay `experimental`, `observed`, `trusted`, `autonomous`, and R3 always needs a human. What changes is that moving between them follows measured numbers from the evidence index, with the thresholds in `agents.yaml`:
+
+- **Promotion** needs a minimum number of accepted changes, escape rate and revert rate under their limits, no policy violations over a threshold, no critical escape, and a minimum time observed at the current level. Example for `trusted` to `autonomous`: 500 accepted changes, escape rate under 0.5%, revert rate under 1%, 60 days.
+- **Demotion is automatic.** A critical escape demotes immediately; an escape rate over its limit demotes one level.
+- **A report** shows every agent's numbers and the next level's gap, so trust is an operational reliability measure and not a label.
+
+### Queue load simulation
+
+The capacity formula assumes independent failures and stable validation time. Real load is bursty: 150 overnight agent changes becoming ready at 09:00, a shared library change affecting 62 services, a toolchain update affecting everything. A simulator drives the queue model with synthetic workloads at 300, 500, 1000 and 1500 PRs a day, with an R0 to R3 mix, varied affected-project counts, flakes, failures, conflicts and arrival bursts, and reports p50/p90/p99 admission and queue latency, runner saturation, rebuild share, relative cost per PR and human wait time. Production sizing is not approved until this has run against the organization's own numbers.
+
+### SCM adapter
+
+The factory core (risk, boundaries, evidence, agent trust, admission, capacity logic) must run on GitLab if that is the production platform, so it stops calling `gh` and GitHub JSON directly. It talks to one interface:
+
+```text
+Factory core -> SCM adapter -> GitHubAdapter | GitLabAdapter (stub)
+             -> Executor (runners)
+get_change()  get_changed_files()  get_approvals()
+publish_decision()  enqueue_change()  get_job_results()
+```
+
+`GitHubAdapter` implements it with `gh` and the REST API as now. `GitLabAdapter` is an interface stub that documents the mapping (merge request, approvals, merge train, pipeline jobs) and fails loudly until implemented. This repository stays the proving ground.
+
+### Later
+
+Documented, not built:
+
+- **Untrusted PR cache with promotion.** At 300 to 1000 PRs a day, rebuilding what the PR already built in the queue gets expensive. PRs would write only to `untrusted/<commit-sha>/`, never to the trusted namespace, and after verification the factory would promote immutable, content-addressed artifacts by digest instead of recomputing them. Not needed for the template.
+- **Real deployment.** Delivery stops at versioned artifacts and a simulated preview deploy. Environments, promotion between them and rollback are an adopter's decision.
