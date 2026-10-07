@@ -23,12 +23,13 @@
     4. [Choosing major, minor or patch](#choosing-major-minor-or-patch)
 11. [Build and test time budgets](#build-and-test-time-budgets)
 12. [Knowing the tests are enough](#knowing-the-tests-are-enough)
-13. [Agent guardrails](#agent-guardrails)
-14. [Developer self-service](#developer-self-service)
-15. [Air-gapped environment](#air-gapped-environment)
-16. [Shared BuildKit service](#shared-buildkit-service)
-17. [Example internal service: the radiator](#example-internal-service-the-radiator)
-18. [Production hardening](#production-hardening)
+13. [Test infrastructure](#test-infrastructure)
+14. [Agent guardrails](#agent-guardrails)
+15. [Developer self-service](#developer-self-service)
+16. [Air-gapped environment](#air-gapped-environment)
+17. [Shared BuildKit service](#shared-buildkit-service)
+18. [Example internal service: the radiator](#example-internal-service-the-radiator)
+19. [Production hardening](#production-hardening)
 
 ## Goal and scope
 
@@ -64,6 +65,7 @@ It does not deploy anything for real. Delivery ends when a versioned artifact is
 | Network | Air-gapped; GitHub is the only outside service |
 | Image registry | GitHub Container Registry (ghcr.io) |
 | Artifact versions | Semver from git tags (`<service>/v<version>`), created only by the release job; the PR title sets the bump level |
+| Test infrastructure | Declared in `service.yaml`, started per run from pinned images in `test-framework/`, never shared; other services are stubs from their contracts (see [Test infrastructure](#test-infrastructure)) |
 | Owner teams | Placeholder GitHub teams, since this is a template |
 | Spec file | Moved into docs/ |
 
@@ -610,7 +612,7 @@ Every stage has a time budget in `ci/policy/budgets.yaml`. A job that exceeds it
 
 How the budgets hold:
 
-- **Tests have levels.** Unit tests use no network, containers or sleeps, and run in every PR. Slower tests are tagged `contract` or `integration` and run only from R2 up. The toolchain enforces the tags, so a slow test cannot hide in the unit suite.
+- **Tests have levels.** Unit tests use no network, containers or sleeps, and run in every PR. Tests that need infrastructure are in a separate `integration` target and run only from R2 up. The level is set by what a test needs, and the toolchain enforces it by running unit tests with the network off, so a slow test cannot hide in the unit suite (see [Test infrastructure](#test-infrastructure)).
 - **Drift is an issue, not a surprise.** Each target's duration is stored with the evidence. When a project's 7-day p90 passes its budget, the factory opens an issue on its owners, like an escape, to split the project or move tests to the right level.
 - **The cache must earn its keep.** The target is at least 80% remote cache hits on PR builds. A drop below that alerts the CI/platform team, since a missed cache usually means unstable inputs.
 - **Flaky tests are quarantined.** A test is quarantined only after the factory confirms it is flaky: it reruns the test 20 times on the same commit, and it must both pass and fail. A test that fails every time is a real failure, not a flake. It stops blocking merges, an issue opens on its owners, and it must be fixed or removed within 5 working days.
@@ -673,6 +675,26 @@ How it's enforced:
 2. **What.** Each service gets a full mutation run over all of its code, plus its full contract and integration suites. The work is split into shards so each service finishes within 2 hours.
 3. **Where results go.** Scores are written to the evidence store as that service's trend. That trend feeds the dashboard, the ratchet and the tier raise.
 4. **On a drop or failure.** If a score falls below the threshold in `ci/policy/test-adequacy.yaml`, or a suite fails, the factory opens an issue for the owners. That service's next PRs move up one tier until it recovers.
+
+## Test infrastructure
+
+Tests get their databases, queues, other services, data and identities one way, so every result is evidence the factory can trust on a laptop, a public runner or an air-gapped network, with 300 agents running at once. The full guidelines, what is shaky today and the delivery steps are in [Test infrastructure guidelines](test-infrastructure.md).
+
+| Level | Nx target | May use | Evidence |
+| --- | --- | --- | --- |
+| Unit and contract | `test` | Memory and the project's files, contract files. No network, no containers | `unit-tests`, `contract-tests` |
+| Integration | `integration` | The service's own declared infrastructure, started per run, and stubs of the services it consumes | `integration-selected`, from R2 |
+| System | `system` in `product/tests/system/` | Several real services from the images built in the run | `integration-broad`, from R3 and nightly |
+
+- **Declared, not discovered.** A service lists its infrastructure under `data:` in `service.yaml` (`postgres`, `redis`, ...). Each kind is a folder in `test-framework/infra/` with its image pinned by digest, a readiness check and a startup budget. Test code never starts containers.
+- **Ephemeral and private.** The `integration` target's launcher starts each run's infrastructure on its own Docker network with no internet access, applies the service's migrations to a fresh database, and removes everything afterwards. No shared test database or environment ever produces merge evidence.
+- **Stubs from contracts.** Up to integration level another service is a stub served from its contract: at `HEAD` inside `product/`, at the pinned released version across boundaries. Providers run their consumers' contracts against their real code, which keeps the stubs honest.
+- **No real outside services or credentials.** Third-party APIs are fakes in `test-framework/fakes/`, checked against the vendor's sandbox only in a nightly job that never blocks. Tests get identities from a fake OIDC issuer started per run.
+- **Test data is the test's own.** Each test creates its data with run-unique keys; fixtures are small synthetic files; production data never enters a test.
+- **Infrastructure failures are not test failures.** A failed pull, start or readiness check is reported as `infra-error`, retried once and counted against the platform, never in a service's flake rate, quarantine or tier.
+- **Pinned and air-gap ready.** Infrastructure images are mirrored and swapped with `FACTORY_TOOLCHAIN_REGISTRY` like the toolchain images, and the `integration` target's cache inputs include their pins.
+
+The `integration-selected` and `integration-broad` evidence stay in shadow mode until these targets exist and show no false blocks.
 
 ## Agent guardrails
 
