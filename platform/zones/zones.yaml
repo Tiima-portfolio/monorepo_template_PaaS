@@ -1,0 +1,100 @@
+# Namespaces, service accounts and network policies for the two trust zones.
+# A template: adapt the labels and CIDRs, then apply with your own tooling.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: factory-pr
+  labels:
+    factory.dev/zone: pr
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: factory-trusted
+  labels:
+    factory.dev/zone: trusted
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pr-runner
+  namespace: factory-pr
+# PR jobs never talk to the cluster API.
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: factory-runner
+  namespace: factory-trusted
+automountServiceAccountToken: false
+---
+# PR zone: deny everything, then allow only what verify needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: factory-pr
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pr-egress
+  namespace: factory-pr
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # Package and image mirror (platform/mirror).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              factory.dev/service: mirror
+    # The read-only BuildKit instance (internal-services/buildkit).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: buildkit-pr
+      ports:
+        - { protocol: TCP, port: 1234 }
+    # The Nx remote cache, read-only token.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              factory.dev/service: nx-cache
+    # GitHub, which the runner needs to receive jobs. Replace with the
+    # published GitHub address ranges, or your egress proxy.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - { protocol: TCP, port: 443 }
+---
+# Trusted zone: nothing from the PR zone reaches it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-from-pr-zone
+  namespace: factory-trusted
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - { key: factory.dev/zone, operator: NotIn, values: [pr] }
