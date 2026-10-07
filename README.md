@@ -166,6 +166,8 @@ X  =  ────────────────────────�
 - **Above capacity**, agent work waits in the controller and drains outside developers' hours, while human work keeps flowing.
 - **A bigger `B` costs more per failure:** at `p = 6%`, `B = 30` loses a third of its throughput. Small PRs, one boundary per PR and flaky-test quarantine keep `p` low.
 
+**At higher rates.** One agent has made 10 PRs in two hours. At 5 to 10 PRs a day per developer and per agent, demand is 2,000 to 4,000 PRs a day and needs `X` of 156 to 313 an hour, more during agent bursts. One GitHub merge queue reaches that only with queue runs of a few minutes: even 100 entries at once give about 185/h with 15-minute runs and 62/h with 45-minute runs. Because PRs stay inside one boundary, PRs that can't affect each other can be tested in [parallel lanes](docs/ci-cd-skeleton-plan.md#parallel-merge-lanes) whose throughput adds up: 10 lanes of 10 give about 360/h with 15-minute runs. The [capacity doc](docs/merge-queue-capacity.md#at-higher-pr-rates) has the numbers and the [queue load simulator](ci/factory/factory/simulate.py) results.
+
 ## Agents
 
 Agents use the same pipeline as humans. [`agents.yaml`](ci/policy/agents.yaml) registers each one with a sponsoring team, the boundaries it may touch, a trust level and its limits.

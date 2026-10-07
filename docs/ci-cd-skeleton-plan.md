@@ -830,6 +830,7 @@ The architecture stays as designed. This section is the work that turns the temp
 | 6 | [Metric-driven agent trust](#metric-driven-agent-trust) | CI | [#217](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/217) |
 | 7 | [Queue load simulation](#queue-load-simulation) | CI | [#218](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/218) |
 | 8 | [SCM adapter](#scm-adapter) | CI | [#219](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/219) |
+| 9 | [Parallel merge lanes](#parallel-merge-lanes) | CI | [#231](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/231) |
 | Later | [Untrusted PR cache and real deployment](#later) | | documented only |
 
 ### Two trust zones
@@ -938,6 +939,45 @@ publish_decision()  enqueue_change()  get_job_results()
 ```
 
 `GitHubAdapter` implements it with `gh` and the REST API as now. `GitLabAdapter` is an interface stub that documents the mapping (merge request, approvals, merge train, pipeline jobs) and fails loudly until implemented. This repository stays the proving ground.
+
+### Parallel merge lanes
+
+One GitHub merge queue per branch can't carry 2,000 to 4,000 PRs a day unless every queue run takes only a few minutes: with 15-minute runs it tops out at about 185 PRs an hour, and with 45-minute runs at about 62, even building 100 entries at once ([capacity doc](merge-queue-capacity.md#at-higher-pr-rates)). The boundaries make a way out possible: PRs that can't affect each other don't need to be tested together.
+
+```mermaid
+flowchart LR
+  A["<b>Admitted PRs</b><br/>labelled ready"]
+  C{"<b>Queue controller</b><br/>which lane?"}
+  G["<b>Global lane</b><br/>ci/, .github/, workspace,<br/>toolchains: runs alone"]
+  L1["<b>Lane</b><br/>internal-services/radiator"]
+  L2["<b>Lane</b><br/>product: orders, billing"]
+  L3["<b>Lane</b><br/>product: catalog"]
+  W["<b>Wide lane</b><br/>shared libraries,<br/>many services"]
+  M["<b>Merge step</b><br/>ordered, fast-forward<br/>onto main"]
+  A --> C
+  C --> G --> M
+  C --> L1 --> M
+  C --> L2 --> M
+  C --> L3 --> M
+  C --> W --> M
+```
+
+**How a PR gets its lane.**
+
+- **Outside `product/`, one lane per boundary or sub-boundary.** A PR stays inside one boundary, and boundaries depend on each other only through released versions and contracts, so an `internal-services/radiator` PR can't break an `internal-tools/<tool>` build.
+- **Inside `product/`, by affected projects.** The gate already computes each PR's affected set. Two product PRs whose affected sets don't overlap go in different lanes; a PR that overlaps a lane joins it. Lanes are formed per batch from what is ready, not fixed in advance.
+- **A wide lane** takes PRs whose affected set is large (a shared library, more than `affected_projects_over` projects), so one wide PR doesn't merge several lanes into one.
+- **The global lane** takes changes to `ci/`, `.github/`, the workspace files and toolchains, which affect every project. It runs alone while the other lanes pause, as rule changes and off-peak workspace changes already do.
+
+**How a lane runs.** Each lane is a small merge queue: it builds up to `B` entries, each on top of `main` plus the entries ahead of it in the same lane, and ejects a failure and rebuilds only that lane's entries behind it. GitHub's merge queue can't do this (one queue per branch, and a failure rebuilds everything behind it), so the queue controller runs the lanes itself: it creates the lane's candidate commits, triggers the factory on them and reads the results, the way the `merge_group` event does today. Commercial queues offer the same idea under other names, which an adopter can use instead.
+
+**How lanes merge.** A merge step takes passed entries from the lanes in order and fast-forwards `main` with each squash commit. A lane's result stays valid on top of another lane's commit because their affected sets don't overlap; the merge step checks that by tree, file by file, and sends an entry back to its lane if another lane changed any of its affected projects in the meantime. Evidence carries over only on that proof, as it does today for the merge queue.
+
+**What can still slip through.** Two lanes can interact at run time in a way the project graph doesn't show, such as an undeclared call between services. Contract tests against released N and N-1 versions cover declared calls; the post-merge check on `main` catches the rest and the factory reverts automatically, as it does today. A rising number of cross-lane reverts means the graph is missing edges, and the [dependency graph validation](#dependency-graph-validation) is where that gets fixed.
+
+**What it buys.** Throughput adds up across lanes, and a failure only restarts entries in its own lane. From the formula, 10 lanes of 10 entries give about 360 PRs an hour with 15-minute runs, against 36 for one queue of 10. In the [queue load simulator](merge-queue-capacity.md#parallel-lanes) with equal lanes, 4,000 PRs a day in 20 lanes of 10 with 15-minute runs wait 23 minutes at the median and 38 at p90. How evenly `product/` splits decides how close a real setup gets.
+
+**Order of work.** Keep GitHub's queue and shorten queue runs first, since that is cheaper and covers up to about 2,000 a day. Build lanes when the simulator, run with the organization's own numbers, shows one queue can't keep the p90 queue wait inside its target.
 
 ### Later
 
