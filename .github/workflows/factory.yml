@@ -129,6 +129,9 @@ jobs:
         with:
           ref: ${{ env.FACTORY_HEAD }}
           fetch-depth: 0
+          # Nothing below pushes, and the PR's code runs in this job: don't
+          # leave the job token in .git/config for it to read.
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .node-version
@@ -149,7 +152,7 @@ jobs:
         run: |
           py=.factory/ci/factory
           [ -f "$py/run.py" ] || py=ci/factory
-          echo "FACTORY_RUN=uv run --frozen --project $py $py/run.py" >> "$GITHUB_ENV"
+          echo "FACTORY_RUN=uv run --frozen --no-config --project $py $py/run.py" >> "$GITHUB_ENV"
       - name: Quarantine list
         env:
           GH_TOKEN: ${{ github.token }}
@@ -160,11 +163,28 @@ jobs:
         with:
           name: factory-gate
           path: gate
-      # Toolchain targets run in the images pinned in each toolchain.yaml.
-      - name: Log in to GHCR for the toolchain images
+      # Verify runs the PR's code, so nothing it can read may outlive the pull.
+      # The toolchain images are pulled here with a throwaway Docker config,
+      # which is deleted before the first PR command; lint, build and tests
+      # then find the images already local and no registry credentials.
+      - name: Pull the toolchain images
         env:
           TOKEN: ${{ github.token }}
-        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/docker-pull"
+          mkdir -p "$DOCKER_CONFIG"
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          for image in $($FACTORY_RUN prefetch-images gate/gate.json); do
+            docker pull --quiet "$image"
+          done
+          docker logout ghcr.io
+          rm -rf "$DOCKER_CONFIG"
+      - name: Lint
+        run: |
+          set +e
+          npx nx affected -t lint --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
+          code=$?
+          $FACTORY_RUN verify-record format-lint "$code" "nx affected -t lint"
       # The shared BuildKit service, when the repository configures it: main
       # pushes use the main instance and write the layer cache; PRs and the
       # merge queue use the PR instance and only read it. Unset: local BuildKit.
@@ -174,12 +194,6 @@ jobs:
           tls: ${{ github.event_name == 'push' && secrets.FACTORY_BUILDKIT_MAIN_TLS || github.event_name != 'push' && secrets.FACTORY_BUILDKIT_TLS || '' }}
           cache-ref: ${{ vars.FACTORY_BUILDKIT_CACHE_REF }}
           cache-write: ${{ github.event_name == 'push' }}
-      - name: Lint
-        run: |
-          set +e
-          npx nx affected -t lint --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
-          code=$?
-          $FACTORY_RUN verify-record format-lint "$code" "nx affected -t lint"
       - name: Build
         run: |
           set +e
@@ -240,6 +254,11 @@ jobs:
           name: factory-verify
           path: factory-out
           retention-days: 7
+      # The BuildKit client key was readable by the PR's build steps; don't
+      # leave it on a runner that outlives the job.
+      - name: Remove the BuildKit client key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/buildkit-tls"
 
   admission:
     name: factory/admission
