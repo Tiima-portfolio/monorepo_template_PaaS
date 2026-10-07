@@ -1,0 +1,56 @@
+# Agent trust from measured outcomes: reports every agent's record daily and,
+# when an agent has earned a demotion, opens a P0 PR that lowers its level.
+# Promotions are only reported: a human opens that R3 change.
+name: agent-trust
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trust:
+    name: factory/agent-trust
+    runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+    env:
+      HAS_APP: ${{ secrets.FACTORY_APP_PRIVATE_KEY != '' && secrets.FACTORY_APP_ID != '' }}
+    steps:
+      # A short-lived token for the factory GitHub App when its secrets exist, so the
+      # demotion PR runs the factory; otherwise GITHUB_TOKEN, as the revert job does.
+      - id: app
+        if: env.HAS_APP == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.FACTORY_APP_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app.outputs.token || github.token }}
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Measure and demote
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+        run: |
+          uv run --frozen --no-config --project ci/factory ci/factory/run.py agent-trust --apply > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet ci/policy/agents.yaml; then
+            echo "No agent earned a demotion."
+            exit 0
+          fi
+          branch="agent-trust/$(date -u +%F)"
+          git config user.name "factory-agent-trust"
+          git config user.email "factory-agent-trust@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "chore: demote agents on measured outcomes"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --label P0 \
+            --title "chore: demote agents on measured outcomes" \
+            --body "$(printf 'A critical escape or a rate over the limit demoted an agent (ci/policy/agents.yaml, `trust_progression`).\n\n'; cat report.md)"
