@@ -33,8 +33,9 @@ def decide(sha, tier, required, records, needs_human=False, override=False, reas
     if jobs is not None:
         blocking += job_problems(sha, jobs, run, affected)
     allowed = not blocking
+    would_block = [r["name"] for r in rows if r.get("example_mode") == "enforce" and r["mode"] != "enforce" and r["status"] not in ("pass", "skipped")]
     return {"allowed": allowed, "blocking": blocking, "rows": rows,
-            "summary": _summary(sha, tier, reasons, override, rows, allowed, blocking)}
+            "would_block": would_block, "summary": _summary(sha, tier, reasons, override, rows, allowed, blocking, would_block)}
 
 
 def job_problems(sha, jobs, run=None, affected=()) -> list[str]:
@@ -60,7 +61,7 @@ def job_problems(sha, jobs, run=None, affected=()) -> list[str]:
     return problems
 
 
-def _summary(sha, tier, reasons, override, rows, allowed, blocking) -> str:
+def _summary(sha, tier, reasons, override, rows, allowed, blocking, would_block=()) -> str:
     because = f" ({'; '.join(reasons)})" if reasons else ""
     lines = [
         f"### Factory admission: {'allowed' if allowed else 'blocked'}",
@@ -76,4 +77,6 @@ def _summary(sha, tier, reasons, override, rows, allowed, blocking) -> str:
     if not allowed:
         lines += ["", f"Blocked by: {', '.join(blocking)}."]
     lines += ["", "Shadow evidence is reported but never blocks."]
+    if would_block:
+        lines += ["", f"For information: the `production-example` profile would also block on {', '.join(would_block)}. It is not active here."]
     return "\n".join(lines)

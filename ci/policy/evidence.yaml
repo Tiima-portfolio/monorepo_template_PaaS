@@ -3,6 +3,20 @@
 # never blocks. New checks start in shadow mode and move to enforce once their
 # shadow results show no false blocks.
 
+# The active profile sets the modes below. This repository is a template, so it
+# always runs `template`: safe defaults that never block on what an adopting
+# organization hasn't calibrated yet. `production-example` shows the intended end
+# state; it is never active by default, and admission only reports what it would
+# have blocked. Adoption path: template -> observe -> calibrate -> enforce.
+profile: template
+
+profiles:
+  template: {}   # the modes listed under `evidence:` as they are
+  production-example:
+    # Enforced once an organization has observed these on its own code. Mutation
+    # score, the coverage ratchet, network, feature-id and time-budget stay shadow longer.
+    enforce: [dependency-rules, diff-coverage, test-quality, contract-tests, integration-selected, integration-broad, owner-approval]
+
 evidence:
   boundary:             { mode: enforce, about: "PR stays inside one boundary" }
   title:                { mode: enforce, about: "Conventional PR title" }
