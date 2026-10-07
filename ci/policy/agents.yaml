@@ -7,6 +7,20 @@ trust_levels:
   trusted:      { merges_alone: [R0, R1] }
   autonomous:   { merges_alone: [R0, R1, R2] }   # R3 always needs a human
 
+# What moves an agent between levels is its measured record since `trust_since`
+# (see factory/trust.py), not opinion. `agent-trust` reports it daily:
+# - promotion needs every threshold of the level it would enter, and is a reviewed
+#   R3 change to this file;
+# - a critical escape demotes at once, and an escape or revert rate over the limit
+#   of the level the agent holds demotes it one level. Demotions open a P0 PR.
+trust_progression:
+  - { to: observed,   min_accepted: 20,  max_escape_rate: 0.05,  max_revert_rate: 0.10,  max_violations: 3, min_days: 7 }
+  - { to: trusted,    min_accepted: 100, max_escape_rate: 0.02,  max_revert_rate: 0.05,  max_violations: 2, min_days: 30 }
+  - { to: autonomous, min_accepted: 500, max_escape_rate: 0.005, max_revert_rate: 0.01,  max_violations: 1, min_days: 60 }
+demotion:
+  critical_escape_to: observed   # at most this level after a critical escape
+  min_accepted: 20               # rates are only judged on at least this many changes
+
 # No agent may change these, whatever its trust level.
 forbidden_paths: ["ci/policy/**", ".github/**"]
 
@@ -19,6 +33,7 @@ agents:
     account: example-docs-agent[bot]
     sponsor: team-platform
     trust: observed
+    trust_since: 2026-10-04
     boundaries: [docs]
     max_open_prs: 5
     max_queue_entries_per_hour: 10
