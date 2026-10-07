@@ -1,6 +1,6 @@
 # Monorepo CI/CD Skeleton Plan
 
-> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-06.
+> **Status:** working draft, still under review. Source: [Evidence-Driven Software Factory](evidence_driven_software_factory.md). Last updated 2026-10-07.
 
 **Contents**
 
@@ -824,12 +824,12 @@ The architecture stays as designed. This section is the work that turns the temp
 | --- | --- | --- | --- |
 | 1 | [Gate runs no PR-controlled code](#the-gate-runs-no-pr-controlled-code) | CI | [#208](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/208) |
 | 2 | [Verify is hostile: trusted and untrusted zones](#verify-is-hostile-trusted-and-untrusted-execution) | CI, platform | [#211](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/211), [#212](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/212) |
-| 3 | [Dependency graph validation](#dependency-graph-validation) | CI | [#216](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/216) |
+| 3 | [Dependency graph validation](#dependency-graph-validation) | CI | [#215](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/215) |
 | 4 | [Policy maturity profiles](#policy-maturity-profiles) and README statement | CI, docs | [#213](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/213), [#214](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/214) |
-| 5 | [Evidence identity](#evidence-identity) | CI | [#217](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/217) |
-| 6 | [Metric-driven agent trust](#metric-driven-agent-trust) | CI | [#218](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/218) |
-| 7 | [Queue load simulation](#queue-load-simulation) | CI | [#219](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/219) |
-| 8 | [SCM adapter](#scm-adapter) | CI | [#220](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/220) |
+| 5 | [Evidence identity](#evidence-identity) | CI | [#216](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/216) |
+| 6 | [Metric-driven agent trust](#metric-driven-agent-trust) | CI | [#217](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/217) |
+| 7 | [Queue load simulation](#queue-load-simulation) | CI | [#218](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/218) |
+| 8 | [SCM adapter](#scm-adapter) | CI | [#219](https://github.com/Tiima-portfolio/monorepo_template_PaaS/issues/219) |
 | Later | [Untrusted PR cache and real deployment](#later) | | documented only |
 
 ### Two trust zones
