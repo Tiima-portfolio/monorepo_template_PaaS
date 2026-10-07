@@ -9,8 +9,9 @@ from pathlib import Path
 
 from ..admission import decide
 from ..budgets import feedback_budget
+from ..identity import identity_problems, policy_version, validator_version
 from ..owners import approvals_met
-from ..policy import load_policy
+from ..policy import CODE_DIR, load_policy, policy_dir
 from .common import append, env, read_json, to_json, write_json
 
 
@@ -43,9 +44,11 @@ def main(argv):
         b = feedback_budget(gate["tier"], run["run_started_at"], datetime.now(timezone.utc), load_policy("budgets"))
         records.append({"check": "time-budget", "status": "pass" if b["ok"] else "fail", "sha": gate["sha"],
                         "details": f"{b['minutes']} min for {gate['tier']}, budget {b['budget']}, hard limit {b['hard']}"})
+    # Evidence counts only under the rules that judge it now.
+    problems = identity_problems(gate.get("identity"), policy_version(policy_dir()), validator_version(CODE_DIR))
     result = decide(gate["sha"], gate["tier"], gate["required"], records, needs_human=gate.get("needsHuman", False),
                     override=gate.get("override", False), reasons=gate.get("reasons") or [], jobs=jobs, run=run,
-                    affected=gate.get("affected") or [])
+                    affected=gate.get("affected") or [], problems=problems)
     out = Path(env.get("FACTORY_OUT") or ".")
     (out / "admission.md").write_text(result["summary"] + "\n")
     write_json(out / "admission.json", {"allowed": result["allowed"], "blocking": result["blocking"], "tier": gate["tier"], "sha": gate["sha"]})
@@ -56,6 +59,7 @@ def main(argv):
         "version": 1,
         "sha": gate["sha"],
         "tree": gate.get("tree"),
+        "identity": gate.get("identity"),
         "event": gate.get("event"),
         "run": {**run_info, **(run or {})},
         "jobs": jobs or [],

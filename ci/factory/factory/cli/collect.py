@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..collect import index_sql, link_to_main, sign
+from ..identity import policy_version, validator_version
+from ..policy import CODE_DIR, policy_dir
 from .admission import now_iso
 from .common import append, env, git, read_json, run, write_json
 
@@ -43,14 +45,16 @@ def main(argv):
         if run_id and run_id != "null":
             try_run(lambda: run("gh", "run", "download", run_id, "--repo", repo, "-n", "factory-evidence", "-D", folder))
         pr_bundle = read_json(Path(folder, "bundle.json"))
-        result = link_to_main(pr_bundle, main_commit, pr["head"])
+        result = link_to_main(pr_bundle, main_commit, pr["head"],
+                              {"policy": policy_version(policy_dir()), "validator": validator_version(CODE_DIR)})
 
     body = {
         "version": 1,
         "main": main_commit,
         "pr": (pr or {}).get("number"),
         "pr_head": (pr or {}).get("head"),
-        "linked": result["ok"] and result["tree_match"],
+        "linked": result["ok"] and result["tree_match"] and result.get("identity_match", True),
+        "identity_match": result.get("identity_match"),
         "tree_match": result["tree_match"],
         "problems": result["problems"],
         "pr_bundle": pr_bundle,
@@ -78,6 +82,8 @@ def main(argv):
         out += ["", *(f"- {p}" for p in result["problems"])]
     append("GITHUB_STEP_SUMMARY", "\n".join(out) + "\n")
     print("\n".join(out))
+    if result.get("identity_match") is False:
+        print(f"::warning::{'; '.join(result['identity_problems'])}; the full checks should run again on main.")
     if not result["tree_match"] and result["ok"]:
         print("::warning::main differs from the commit the PR verified; the full checks should run again on main.")
     if not result["ok"]:

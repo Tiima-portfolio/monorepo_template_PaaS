@@ -8,7 +8,7 @@ Only records for the exact commit being judged count.
 ICON = {"pass": "✅", "fail": "❌", "missing": "⚪", "skipped": "➖"}
 
 
-def decide(sha, tier, required, records, needs_human=False, override=False, reasons=(), jobs=None, run=None, affected=()) -> dict:
+def decide(sha, tier, required, records, needs_human=False, override=False, reasons=(), jobs=None, run=None, affected=(), problems=()) -> dict:
     rows = []
     blocking = []
     for req in required:
@@ -32,6 +32,7 @@ def decide(sha, tier, required, records, needs_human=False, override=False, reas
     # records the jobs wrote.
     if jobs is not None:
         blocking += job_problems(sha, jobs, run, affected)
+    blocking += list(problems)
     allowed = not blocking
     return {"allowed": allowed, "blocking": blocking, "rows": rows,
             "summary": _summary(sha, tier, reasons, override, rows, allowed, blocking)}

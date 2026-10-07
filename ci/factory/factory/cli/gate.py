@@ -23,11 +23,14 @@ from ..evidence import required_evidence
 from ..flaky import active_quarantine
 from ..graph import affected as affected_projects
 from ..graph import build_graph
+from ..identity import build_identity
+from ..identity import environment as identity_environment
+from ..identity import policy_version, toolchain_version, validator_version
 from ..guardrails import agent_guardrails, owner_checks
 from ..mise import mise_toml
 from ..network import network_problems
 from ..owners import route
-from ..policy import load_policy
+from ..policy import CODE_DIR, load_policy, policy_dir
 from ..risk import classify, test_only
 from ..test_quality import lint_test_file
 from .common import append, env, evidence_dir, git, git_text, git_yaml, lines, out_dir, read_json, run, to_json, write_json, write_record
@@ -203,8 +206,12 @@ def main(argv):
         tools.update(((git_yaml(head, f"internal-tools/toolchains/{tc}/toolchain.yaml") or {}).get("setup") or {}).get("mise") or {})
     (out / "mise.toml").write_text(mise_toml(tools))
 
+    tree = git("rev-parse", f"{head}^{{tree}}")
+    toolchain_specs = {tc: git_yaml(head, f"internal-tools/toolchains/{tc}/toolchain.yaml") or {} for tc in aff["toolchains"]}
+    ident = build_identity(env.get("GITHUB_REPOSITORY"), tree, sha, policy_version(policy_dir()), toolchain_version(toolchain_specs),
+                           validator_version(CODE_DIR), identity_environment(env))
     gate = {
-        "sha": sha, "tree": git("rev-parse", f"{head}^{{tree}}"), "base": base, "head": head, "event": event_name,
+        "sha": sha, "tree": tree, "identity": ident, "base": base, "head": head, "event": event_name,
         "tier": risk["tier"], "reasons": risk["reasons"], **({"boundary": boundary["boundary"]} if "boundary" in boundary else {}),
         "override": bool(boundary.get("override")), "needsHuman": provenance["needs_human"], "affected": aff["names"],
         "toolchains": aff["toolchains"], "files": len(files), "required": required,

@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import json
 
+from .identity import identity_problems
+
 
 def _stringify(value) -> str:
     """JSON as JavaScript's JSON.stringify writes it, so digests match."""
@@ -16,7 +18,7 @@ def digest(record: dict) -> str:
     return hashlib.sha256(_stringify(rest).encode()).hexdigest()
 
 
-def link_to_main(bundle, main, pr_head) -> dict:
+def link_to_main(bundle, main, pr_head, main_identity=None) -> dict:
     """bundle: the PR's last admitted bundle. main: {sha, tree}. pr_head: PR head sha."""
     if not bundle:
         return {"ok": False, "tree_match": False, "problems": ["no evidence bundle found for the PR"]}
@@ -34,7 +36,13 @@ def link_to_main(bundle, main, pr_head) -> dict:
     # Without a merge queue the squash commit can differ from what was verified,
     # if main moved on. Only an exact tree match carries the evidence over.
     tree_match = bool(bundle.get("tree")) and bundle.get("tree") == main.get("tree")
-    return {"ok": not problems, "tree_match": tree_match, "problems": problems}
+    result = {"ok": not problems, "tree_match": tree_match, "problems": problems}
+    if main_identity is not None and bundle.get("identity"):
+        # Evidence made under another policy or factory version is not evidence for main's rules.
+        stale = identity_problems(bundle["identity"], main_identity["policy"], main_identity["validator"])
+        result["identity_match"] = not stale
+        result["identity_problems"] = stale
+    return result
 
 
 def sign(body, key: str) -> str:
