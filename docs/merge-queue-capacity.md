@@ -73,6 +73,65 @@ A bigger `B` buys throughput, but every failure throws away more work. With `d =
 
 So raising `B` only pays while `p` stays low. That is why the factory keeps PRs small and inside one boundary, retries and quarantines flaky tests, and makes changes to its own rules merge alone.
 
+## At higher PR rates
+
+The demand above may be low. On 2026-10-07 one agent made about 10 PRs in two hours, about 5 an hour while it worked. With the same 8-hour developer window and agents around the clock:
+
+| Scenario | PRs a day | Peak hour | Needed `X` (`peak / 0.8`) |
+| --- | --- | --- | --- |
+| 5 PRs a day per developer and per agent | 500 + 1500 = 2000 | 62.5 + 62.5 = 125/h | **156/h** |
+| 10 PRs a day per developer and per agent | 1000 + 3000 = 4000 | 125 + 125 = 250/h | **313/h** |
+| Developers at 10 a day, 60 of the 300 agents bursting at 5 an hour | | 125 + 300 = 425/h | **531/h** |
+
+What one queue can do, from the formula with `p = 2.25%`:
+
+| Queue run `T` | Best `X` with one queue | Smallest `B` for 156/h | For 313/h | For 531/h |
+| --- | --- | --- | --- | --- |
+| 2 min | 1387/h at `B = 100` | 6 | 12 | 23 |
+| 5 min | 555/h at `B = 100` | 16 | 38 | 92 |
+| 15 min (budget) | 185/h at `B = 100` | 72 | out of reach | out of reach |
+| 45 min | 62/h at `B = 100` | out of reach | out of reach | out of reach |
+
+`B = 100` is, as far as we know, the most GitHub lets a merge queue build at once. So at these rates a single queue only works if queue runs take a few minutes, and the queue must re-run only what combining PRs can change. Slow suites (broad integration, full mutation) then belong on the PR, the nightly run and the post-merge check on `main`.
+
+### The simulator agrees, and is stricter
+
+The [queue load simulator](../ci/factory/factory/simulate.py) runs a synthetic day minute by minute with the assumptions in [`simulation.yaml`](../ci/policy/simulation.yaml): a median queue run of 6 minutes stretched by the number of affected projects, 70% agent PRs, a burst of 150 ready PRs at 09:00, and a day to drain afterwards. One queue, `seed = 1`, with the controller's depth limits scaled to `B` (`max_depth = 4 × B`):
+
+| PRs a day | `B`, run | Not merged after a day of drain | Queue wait p50 / p90 (min) | Rebuild share |
+| --- | --- | --- | --- | --- |
+| 1000 | 5, 6 min (as shipped) | 0 | 845 / 1181 | 6% |
+| 1000 | 20, 6 min | 0 | 39 / 147 | 20% |
+| 2000 | 5, 6 min (as shipped) | 875 | 596 / 2097 | 6% |
+| 2000 | 20, 6 min | 0 | 94 / 617 | 21% |
+| 2000 | 50, 6 min | 0 | 27 / 63 | 32% |
+| 2000 | 50, 15 min | 0 | 889 / 1114 | 39% |
+| 2000 | 100, 45 min | 758 | 785 / 1948 | 49% |
+| 4000 | 50, 6 min | 0 | 684 / 777 | 36% |
+| 4000 | 50, 15 min | 1564 | 613 / 1991 | 35% |
+| 4000 | 100, 45 min | 2815 | 1025 / 1870 | 61% |
+
+The simulator is stricter than the formula because wide PRs take longer and bursts arrive together. Beyond 2000 a day, one queue holds work for hours even with short runs, and with 45-minute runs it can't keep up at all.
+
+## Parallel lanes
+
+PRs can't cross a boundary, and boundaries depend on each other only through released versions and contracts. So PRs in different boundaries, or product PRs whose affected projects don't overlap, can't break each other's build, and can be tested in separate lanes. Throughput then adds up across lanes. GitHub has one merge queue per branch, so the queue controller would have to run the lanes itself: see [Parallel merge lanes](ci-cd-skeleton-plan.md#parallel-merge-lanes) in the plan.
+
+From the formula, 10 lanes of `B = 10` give about 360/h with 15-minute runs and 120/h with 45-minute runs, against 36/h and 12/h for one such queue.
+
+The simulator, with each lane getting an equal share of the day's PRs and of the 09:00 burst:
+
+| PRs a day | Lanes × `B`, run | Not merged | Queue wait p50 / p90 (min) | Rebuild share |
+| --- | --- | --- | --- | --- |
+| 2000 | 10 × 10, 6 min | 0 | 8 / 15 | 1% |
+| 2000 | 10 × 10, 15 min | 0 | 28 / 73 | 5% |
+| 2000 | 20 × 20, 45 min | 0 | 103 / 164 | 13% |
+| 4000 | 10 × 10, 6 min | 0 | 9 / 17 | 4% |
+| 4000 | 20 × 10, 15 min | 0 | 23 / 38 | 3% |
+| 4000 | 20 × 20, 45 min | 0 | 246 / 467 | 13% |
+
+Equal lanes are the best case. Most PRs land in `product/`, so how evenly product splits by affected projects decides how close a real setup gets to these numbers. Narrower lanes also lose far less to rebuilds, because a failure only restarts the entries in its own lane.
+
 ## What this repo measures today
 
 From the GitHub API on 2026-10-06, for `Tiima-portfolio/monorepo_template_PaaS`:
@@ -116,4 +175,10 @@ print(round(throughput(B=5, T=15), 1))         # 18.7
 print(round(peak_demand() / 0.8, 1))           # 73.0
 ```
 
-To change `B`, edit `max_entries_to_build` and `max_entries_to_merge` in [`merge-queue.json`](../.github/rulesets/merge-queue.json) and apply the rulesets. The queue controller's depth limits in [`queue.yaml`](../ci/policy/queue.yaml) should grow with it, so backpressure starts above a full build window.
+The simulator reads its assumptions from [`simulation.yaml`](../ci/policy/simulation.yaml); change `entries_building`, `run_minutes` or the runner slots there and run:
+
+```bash
+uv run --project ci/factory ci/factory/run.py simulate-queue --per-day 1000,2000,4000
+```
+
+The lane rows above came from running it with one lane's share of the PRs and the burst. To change `B`, edit `max_entries_to_build` and `max_entries_to_merge` in [`merge-queue.json`](../.github/rulesets/merge-queue.json) and apply the rulesets. The queue controller's depth limits in [`queue.yaml`](../ci/policy/queue.yaml) should grow with it, so backpressure starts above a full build window.
