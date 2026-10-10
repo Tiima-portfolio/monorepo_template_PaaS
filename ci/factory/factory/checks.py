@@ -5,18 +5,41 @@ import re
 from .globs import matches_any
 from .policy import load_policy
 
-TITLE = re.compile(r"^(feat|fix|perf|refactor|revert|docs|test|chore|ci|build|style)(\([\w./-]+\))?(!)?: \S.*$")
+TYPES = "feat|fix|perf|refactor|revert|docs|test|chore|ci|build|style"
+# "<project>: <type> <description>", e.g. "product: fix rounding" or
+# "buildkit: feat! drop the v1 API". An optional scope follows the type.
+TITLE = re.compile(rf"^(?P<project>[a-z0-9][\w.-]*): (?P<type>{TYPES})(?:\((?P<scope>[\w./-]+)\))?(?P<bang>!)? \S.*$")
+# Titles on main from before the project prefix, e.g. "feat(orders): refunds".
+# Release and trust still read them; new PRs can't use them.
+LEGACY_TITLE = re.compile(rf"^(?P<type>{TYPES})(?:\((?P<scope>[\w./-]+)\))?(?P<bang>!)?: \S.*$")
 BUMP = {"feat": "minor", "fix": "patch", "perf": "patch", "refactor": "patch", "revert": "patch"}
 
 
-def check_title(title: str | None) -> dict:
-    """Conventional PR title; the squash commit title sets the version bump."""
+def parse_title(title: str | None) -> dict | None:
+    """A squash commit title in either format, or None."""
+    m = TITLE.match(title or "") or LEGACY_TITLE.match(title or "")
+    if not m:
+        return None
+    d = m.groupdict()
+    return {"project": d.get("project"), "type": d["type"], "scope": d["scope"],
+            "bump": "major" if d["bang"] else BUMP.get(d["type"], "none")}
+
+
+def check_title(title: str | None, projects=()) -> dict:
+    """PR title "<project>: <type> <description>"; it becomes the squash commit
+    title on main, which sets the version bump. projects: the projects the PR
+    changes (see boundary.project_of); the title must name one of them."""
     m = TITLE.match(title or "")
     if not m:
-        return {"ok": False, "message": f'PR title "{title}" must start with a type such as "fix:", "feat:", "feat!:", "docs:", "test:", "chore:", "ci:" or "build:".'}
-    kind, bang = m.group(1), m.group(3)
-    bump = "major" if bang else BUMP.get(kind, "none")
-    return {"ok": True, "type": kind, "bump": bump, "message": f"Title type {kind}{'!' if bang else ''}, version bump: {bump}"}
+        example = f"{projects[0]}: fix ..." if projects else "product: fix ..."
+        return {"ok": False, "message": f'PR title "{title}" must be "<project>: <type> <description>", for example "{example}". '
+                                        f'Types: {TYPES.replace("|", ", ")}; "feat!" for a breaking change.'}
+    t = parse_title(title)
+    if projects and t["project"] not in projects:
+        return {"ok": False, "message": f'PR title names the project "{t["project"]}", but this PR changes {", ".join(projects)}. '
+                                        f'Start the title with "{projects[0]}: ".'}
+    bang = "!" if t["bump"] == "major" else ""
+    return {"ok": True, **t, "message": f"Project {t['project']}, type {t['type']}{bang}, version bump: {t['bump']}"}
 
 
 def check_history(commits) -> dict:

@@ -1,4 +1,5 @@
-# Daily check that the live rulesets still match .github/rulesets/.
+# Daily check that the live rulesets still match .github/rulesets/, and the
+# repository settings .github/repository.json.
 name: rulesets
 
 on:
@@ -7,7 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/rulesets/**"]
+    paths: [".github/rulesets/**", ".github/repository.json"]
 
 permissions:
   contents: read

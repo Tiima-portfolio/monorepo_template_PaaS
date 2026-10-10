@@ -9,7 +9,8 @@ Env: GITHUB_REPOSITORY, GH_TOKEN. Reads released.json.
 
 from pathlib import Path
 
-from ..promote import plan_promotions, set_pin
+from ..policy import load_policy
+from ..promote import bump_title, on_hold, plan_promotions, set_pin
 from ..scm import get_scm
 from .common import git, lines, read_json, read_yaml
 
@@ -22,14 +23,13 @@ def main(argv):
 
     pins_files = [{"path": p, "pins": (read_yaml(p) or {}).get("pins") or {}}
                   for p in lines(git("ls-files", "*pins.yaml")) if p.endswith("/pins.yaml")]
-    # Open escape issues name the service as the title's scope, e.g.
-    # "escape: fix(orders): ...", or in brackets, "escape: [orders] ...".
     scm = get_scm()
     escapes = [i["title"] for i in scm.list_issues(["escape"])]
-    holds = [r["service"] for r in released if any(f"({r['service']})" in t or f"[{r['service']}]" in t for t in escapes)]
+    holds = [r["service"] for r in released if on_hold(r["service"], escapes)]
     for s in holds:
         print(f"::warning::Promotion of {s} is on hold: it has an open escape.")
 
+    boundaries = load_policy("boundaries")
     start = git("rev-parse", "HEAD")
     for b in plan_promotions(pins_files, released, holds):
         consumer = str(Path(b["path"]).parent)
@@ -40,7 +40,7 @@ def main(argv):
         git("checkout", "-q", "-B", branch, start)
         pins = Path(b["path"])
         pins.write_text(set_pin(pins.read_text(), b["service"], b["to"]))
-        title = f"fix({Path(consumer).name}): promote {b['service']} to {b['to']}"
+        title = bump_title(b["path"], b["service"], b["to"], boundaries)
         git("commit", "-q", "-am", f"{title}\n\nPromotes: {b['service']}@{b['to']}")
         git("push", "-q", "origin", branch)
         body = (f"{b['service']} released {b['to']}; {consumer} pinned {b['from']}. This bump runs {consumer}'s own checks "

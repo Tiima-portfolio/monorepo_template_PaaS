@@ -3,7 +3,7 @@ titles, and releases happen in main's history order."""
 
 import re
 
-from .checks import check_title
+from .checks import parse_title
 
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
@@ -46,8 +46,8 @@ def plan_releases(commits, tags) -> list[dict]:
     known = list(tags)
     releases = []
     for c in commits:
-        title = check_title(c["title"])
-        title_bump = title["bump"] if title["ok"] else "none"
+        title = parse_title(c["title"])
+        title_bump = title["bump"] if title else "none"
         changed = set(c["changed"] if c.get("changed") is not None else c["affected"])
         for service in sorted(c["affected"]):
             bump = title_bump if service in changed else "none" if title_bump == "none" else "patch"
