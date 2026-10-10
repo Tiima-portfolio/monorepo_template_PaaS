@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Consumer contract: what the simulator sends must exist in orders' published
 OpenAPI contract (product/services/orders/api/openapi.yaml)."""
 
