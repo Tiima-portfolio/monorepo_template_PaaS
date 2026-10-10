@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Converts mutmut's results into the factory's mutation/report.json.
 
 mutmut names mutants after the function it mutated (pkg.mod.x_func__mutmut_1,

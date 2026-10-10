@@ -44,6 +44,14 @@ test('new-service creates a project from the template', () => {
   assert.throws(() => createService({ name: 'Bad Name', lang: 'typescript', owner: 'x', root }), /lowercase/);
 });
 
+test('new-service keeps executable template files executable', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'svc-'));
+  const dest = createService({ name: 'billing-api', lang: 'python', owner: 'team-billing', root });
+  const init = path.join(dest, 'src/billing_api/__init__.py');
+  assert.match(fs.readFileSync(init, 'utf8'), /^#!\/usr\/bin\/env python3\n/);
+  assert.ok(fs.statSync(init).mode & 0o111, 'ruff EXE001 wants a file with a shebang to be executable');
+});
+
 test('a language plus container runs both, in order', () => {
   const p = projectFor('product/services/api/service.yaml', { name: 'api', toolchains: ['go', 'container'] }, loadToolchains());
   assert.match(p.targets.build.options.command, /'CGO_ENABLED=0 go build [^']*' && node \.\.\/\.\.\/\.\.\/internal-tools\/toolchains\/container\/buildx\.mjs api --load -t api:ci \.$/);
