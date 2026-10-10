@@ -559,7 +559,7 @@ How it stays trustworthy:
 `service.yaml` holds what a team decides: owners, toolchains, criticality, dependencies. The version is release state, so it lives in git tags instead.
 
 - **Tag format:** `<service>/v<semver>`, for example `orders/v1.4.2`, on the squash commit that was released.
-- **Bump level:** the PR title uses conventional prefixes (`fix:` patch, `feat:` minor, `feat!:` major). The gate checks the title against the contract diff, as set out below.
+- **Bump level:** the PR title reads `<project>: <type> <description>`, for example `product: fix rounding`, and the type sets the bump (`fix` patch, `feat` minor, `feat!` major). The gate checks the title against the contract diff, as set out below.
 - **Who tags:** only the release job's GitHub App may create these tags; a ruleset blocks everyone else and makes tags immutable.
 - **Order:** releases follow the order of `main`, not the order jobs happen to start. A single release controller keeps a cursor at the last released commit and, on each run, walks every newer `main` commit in history order. A run that is cancelled or starts late loses nothing, because the next run picks up from the cursor.
 - **Changelog:** generated from the squash commit titles that touched the service since its previous tag; linear history makes that list exact.
@@ -573,10 +573,10 @@ The machine decides the minimum bump from the contract diff, and the PR title mu
 
 | Level | What counts | Examples | Extra rule |
 | --- | --- | --- | --- |
-| Major | A change that can break a consumer of the public contract | Removed or renamed endpoint, field or function; changed type; stricter validation; removed config or environment variable; data migration that doesn't work with N-1 | Title needs `!`, the change is R3, owners of consuming services are notified |
+| Major | A change that can break a consumer of the public contract | Removed or renamed endpoint, field or function; changed type; stricter validation; removed config or environment variable; data migration that doesn't work with N-1 | Type needs `!`, the change is R3, owners of consuming services are notified |
 | Minor | A backward-compatible new capability | New endpoint, optional field, function or event; new config with a safe default | None |
 | Patch | Shipped behaviour changes, contract doesn't | Bug fix, performance, internal refactor, dependency or base image update | None |
-| No release | Nothing shipped changes | Tests, docs, comments, the service README | Prefixes `test:`, `docs:`, `chore:` create no tag |
+| No release | Nothing shipped changes | Tests, docs, comments, the service README | Types `test`, `docs`, `chore` create no tag |
 
 **What the public contract is.** Each service declares it in `service.yaml`: its OpenAPI or protobuf files, its exported package API, its events, config and environment variables, and its data schema.
 
@@ -584,7 +584,7 @@ The machine decides the minimum bump from the contract diff, and the PR title mu
 
 1. The gate diffs the contract against the last released tag with each toolchain's checker: OpenAPI and protobuf diff tools, the Go API diff, the TypeScript public API report, and the Python signature check.
 2. That gives a minimum level for every affected service: major for a breaking diff, minor for an addition, patch for any other change to shipped code.
-3. The PR title prefix (`fix:`, `feat:`, `feat!:`) must be at least the highest minimum among the services it changes. A lower title fails the gate, with a message naming the breaking or added items.
+3. The PR title type (`fix`, `feat`, `feat!`) must be at least the highest minimum among the services it changes. A lower title fails the gate, with a message naming the breaking or added items.
 4. Each service is released at its own detected level, raised to the title's level when the title is higher. So one product PR can release `orders` as minor and `billing` as patch.
 
 **When it happens.** The release job computes and tags versions on merge to `main`, one release per squash commit per affected service. There are no pre-release versions on `main`.
@@ -742,7 +742,7 @@ A dev team only ever touches its own service folder; the CI/platform team owns e
 | Configure it | Edit `service.yaml` only: owners, toolchains, criticality, dependencies. No workflow or CI file in any service folder |
 | Check before pushing | `npm run check` runs the same lint, test and build as CI for every toolchain (TypeScript, Go, Python and containers), for affected projects only. It calls Nx, which runs each toolchain's own commands, so a Go or Python team needs no npm knowledge |
 | Understand a result | The gate posts one PR comment: boundary, risk tier, required evidence, what ran and what failed, with the next step to fix it |
-| Release | Start the PR title with `fix:`, `feat:` or `feat!:`; the version and publishing happen on merge |
+| Release | Title the PR `<project>: fix ...`, `<project>: feat ...` or `<project>: feat! ...`; the version and publishing happen on merge |
 
 The CI/platform team owns `ci/`, `.github/`, `platform/`, `internal-tools/toolchains/` and the Workspace files. A dev team never needs to read them to ship.
 
