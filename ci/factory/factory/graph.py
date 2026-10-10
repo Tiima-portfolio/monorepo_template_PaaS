@@ -107,6 +107,18 @@ def affected(files: list[str], head: dict, base: dict | None = None) -> list[str
     return sorted(n for n in seen if n in head["nodes"])
 
 
+def with_dependencies(names: list[str], graph: dict) -> list[str]:
+    """The projects and everything they depend on, directly or not: what
+    building them runs, since a build runs its dependencies' builds first."""
+    seen, todo = set(), list(names)
+    while todo:
+        n = todo.pop()
+        if n not in seen:
+            seen.add(n)
+            todo.extend(e["target"] for e in graph["dependencies"].get(n) or [])
+    return sorted(n for n in seen if n in graph["nodes"])
+
+
 def owners_of(files: list[str], graph: dict) -> list[str]:
     """The projects that own at least one of the files."""
     return sorted({o for f in files if (o := _owner(f, graph))})

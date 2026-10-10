@@ -22,7 +22,7 @@ from ..deps import check_dependencies
 from ..evidence import required_evidence
 from ..flaky import active_quarantine
 from ..graph import affected as affected_projects
-from ..graph import build_graph, owners_of, project_files
+from ..graph import build_graph, owners_of, project_files, with_dependencies
 from ..identity import build_identity
 from ..identity import environment as identity_environment
 from ..identity import policy_version, toolchain_version, validator_version
@@ -43,12 +43,15 @@ def affected(files, base, head):
     declarations in git. Nothing from the PR is executed: see graph.py."""
     graph, base_graph = build_graph(head), build_graph(base)
     names = affected_projects(files, graph, base_graph)
-    tags = [t for n in names for t in graph["nodes"][n]["data"]["tags"]]
 
-    def pick(prefix):
+    def pick(prefix, projects):
+        tags = [t for n in projects for t in graph["nodes"][n]["data"]["tags"]]
         return list(dict.fromkeys(t[len(prefix):] for t in tags if t.startswith(prefix)))
 
-    return {"names": names, "nodes": graph["nodes"], "graph": graph, "criticalities": pick("criticality:"), "toolchains": pick("toolchain:")}
+    # Toolchains also of the projects they depend on: building them runs those
+    # projects' builds, in their own toolchain images.
+    return {"names": names, "nodes": graph["nodes"], "graph": graph, "criticalities": pick("criticality:", names),
+            "toolchains": pick("toolchain:", with_dependencies(names, graph))}
 
 
 def main(argv):
