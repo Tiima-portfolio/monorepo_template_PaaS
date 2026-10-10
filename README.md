@@ -246,12 +246,11 @@ The `toolchains` list picks targets from [`internal-tools/toolchains/`](internal
 
 ### PR titles
 
-PR titles use conventional prefixes, because the squash commit title sets the version bump:
+A PR title becomes the squash commit title on `main`, so it names the project it changes and the type of change: `<project>: <type> <description>`, for example `product: fix rounding` or `buildkit: feat add a cache`.
 
-- `fix:` patch
-- `feat:` minor
-- `feat!:` major
-- `docs:`, `test:`, `chore:`, `ci:`, `build:` no release
+- The project is the PR's boundary (`product`, `platform`, `ci`, `docs`, `workspace`) or, under `internal-services/` and `internal-tools/`, the folder (`buildkit`, `toolchains`). The gate fails a title that names another project.
+- The type sets the version bump: `fix` patch, `feat` minor, `feat!` major; `docs`, `test`, `chore`, `ci`, `build` no release.
+- A scope after the type is optional: `product: fix(orders) rounding`.
 
 ### Status
 
