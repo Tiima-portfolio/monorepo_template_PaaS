@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Promotion bot, run by the release workflow after releases with the factory
 App's token. For every pins.yaml whose consumer pins an older version of a
 service released in this run, it opens one bump PR, labelled ready and P4,

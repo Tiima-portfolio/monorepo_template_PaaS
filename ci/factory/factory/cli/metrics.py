@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Merges new coverage totals into main's metrics file.
 Usage: metrics <metrics.json> <coverage-totals.json> <sha>"""
 

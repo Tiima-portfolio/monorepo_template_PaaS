@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from factory.admission import decide
 from factory.collect import link_to_main
 from factory.identity import build_identity, identity_problems, policy_version, toolchain_version, validator_version

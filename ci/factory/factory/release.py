@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Release planning: versions come from git tags, bumps from squash commit
 titles, and releases happen in main's history order."""
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Risk tier classifier: sets R0 to R3 for a PR from ci/policy/risk.yaml."""
 
 from .globs import matches_any

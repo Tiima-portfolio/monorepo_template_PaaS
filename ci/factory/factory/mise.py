@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Writes a mise config for the tools of the affected toolchains."""
 
 import json

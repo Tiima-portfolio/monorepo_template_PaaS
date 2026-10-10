@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The platform calls the workflows make, behind the SCM adapter.
 
 Usage:

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Fix now, test after: opens the escape issue for a merged hotfix, so the
 missing lower-level test isn't forgotten. Run by .github/workflows/escapes.yml.
 

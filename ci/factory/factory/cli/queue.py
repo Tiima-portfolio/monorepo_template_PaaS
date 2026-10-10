@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Merge queue controller, run by .github/workflows/queue.yml. Reads open PRs
 and the merge queue, picks what to enqueue and enqueues it.
 

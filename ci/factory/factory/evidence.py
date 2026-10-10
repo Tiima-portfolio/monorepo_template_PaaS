@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Required evidence per tier, from ci/policy/evidence.yaml.
 
 The active profile (`profile:` in that file) decides each check's mode. The

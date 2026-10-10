@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Evidence collector, run by .github/workflows/evidence.yml on every push to
 main, on the main runner pool and with base-branch code. It finds the PR the
 commit came from, takes that PR's last admitted evidence bundle, checks it,

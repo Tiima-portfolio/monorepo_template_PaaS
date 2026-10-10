@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from factory.boundary import boundary_of, check_boundary, project_of
 from factory.globs import matches
 from factory.policy import load_policy

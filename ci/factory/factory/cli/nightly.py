@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The nightly full run's reports: every project's tests, not only affected
 ones. It reports, never blocks merges.
 

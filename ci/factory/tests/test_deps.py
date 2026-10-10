@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import re
 
 from factory.contracts import contract_problems

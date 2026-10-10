@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Compares the repository rulesets with the files in .github/rulesets/."""
 
 

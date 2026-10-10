@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Agent backpressure: an agent may have at most max_open_prs open PRs, and its
 sponsoring team at most review_budget agent PRs waiting for review."""
 

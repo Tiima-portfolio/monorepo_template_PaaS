@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from pathlib import Path
 
 from factory.test_quality import lint_test_file

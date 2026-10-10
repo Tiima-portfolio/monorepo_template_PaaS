@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The platform the factory runs on, chosen by FACTORY_SCM (github, the only adapter)."""
 
 import os

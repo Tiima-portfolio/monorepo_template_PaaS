@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Runs the merge queue load simulator.
 
 Usage: simulate-queue [--per-day 300,500,1000,1500] [--seed 1] [--days 1]

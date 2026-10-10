@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Writes the diff-coverage evidence record after the tests ran. Run from the
 base branch's copy by the verify job.
 

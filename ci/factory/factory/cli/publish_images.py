@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Publishes the toolchain images CI runs its targets in. Each image is a
 container project under internal-tools/toolchains/; when its folder changed in
 the push (or always, when run by hand), it is built with its own package

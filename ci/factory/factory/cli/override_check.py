@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Checks who added the boundary override label: a factory owner's label lets
 the gate accept a boundary crossing. Run by the gate job before the gate.
 

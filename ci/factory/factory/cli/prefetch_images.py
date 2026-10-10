@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Prints, or pulls, the toolchain images the verify job needs.
 
 Usage: run.py prefetch-images <gate.json> [--pull]

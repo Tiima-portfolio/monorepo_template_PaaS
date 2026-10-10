@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Approval routing: who must approve a PR, per service it touches, from each
 service's service.yaml and guardrails.yaml on the base branch."""
 

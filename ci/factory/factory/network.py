@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Air-gap check: added lines in lock files, Dockerfiles and toolchain configs
 may only reference allowed package and image hosts."""
 

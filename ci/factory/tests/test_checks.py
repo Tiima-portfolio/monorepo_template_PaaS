@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from factory.checks import check_history, check_provenance, check_title, parse_title
 
 

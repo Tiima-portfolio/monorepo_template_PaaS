@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """For PRs labelled escape-fix: proves the fix comes with a test that would
 have caught the escape. The PR's tests are run against the parent commit's
 code (every changed non-test file put back to the base version) and must

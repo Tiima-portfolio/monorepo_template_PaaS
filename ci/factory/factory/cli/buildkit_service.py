@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Points container builds at the shared BuildKit service
 (internal-services/buildkit) by setting the FACTORY_BUILDKIT_* variables the
 container toolchain reads. Run by .github/actions/buildkit-service. Without an

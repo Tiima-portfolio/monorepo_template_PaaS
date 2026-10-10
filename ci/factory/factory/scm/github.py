@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """GitHub adapter: `gh` and the REST and GraphQL APIs."""
 
 import json

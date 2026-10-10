@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Contract coverage: every declared contract file exists, and every consumes
 edge has a consumer contract test, kept in the consumer under
 contracts/<provider>/ (any depth), for example

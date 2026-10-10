@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """PR title, history and agent provenance checks."""
 
 import re

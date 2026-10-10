@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Which toolchain images a verify job pulls before it runs the PR's code.
 
 Pulling needs registry credentials and running the PR's lint, build and tests

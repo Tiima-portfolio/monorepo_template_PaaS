@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Factory gate, run by .github/workflows/factory.yml.
 
 Works out the PR's boundary, risk tier and required evidence, records the

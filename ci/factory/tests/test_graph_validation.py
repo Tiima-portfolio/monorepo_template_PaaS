@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The graph is a safety property: a project missing from the blast radius
 ships a defect. These are deliberately awkward cases, each in three forms:
 the reference is found when undeclared, it is quiet once declared, and the
