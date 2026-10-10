@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Real references between projects, to compare with the declared graph.
 
 The affected set is only as good as the declared dependencies (`dependsOn`,

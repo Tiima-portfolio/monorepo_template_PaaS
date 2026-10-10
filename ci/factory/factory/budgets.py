@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Time budget evidence: how long this PR's feedback took against its tier's
 budget. Hard limits are enforced as job and step timeouts in the workflow."""
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Shared by diff-coverage and mutation: the lines a PR adds to a project's
 code (not its tests), and the threshold that applies to the project."""
 

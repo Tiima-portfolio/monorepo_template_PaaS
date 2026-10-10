@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Compares the Python graph with the one Nx built, so they can't drift apart."""
 
 

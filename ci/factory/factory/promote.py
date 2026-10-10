@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Promotion: when a service releases, every consumer that pins its version in
 a pins.yaml gets a bump PR, one per consumer, so each hop is its own PR."""
 

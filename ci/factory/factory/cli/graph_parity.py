@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Verify step: the Python graph the gate used against the Nx graph.
 Writes the graph-parity evidence record. Usage: graph-parity"""
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Flaky test handling, per project test target.
 
 A failing test target is retried once. A pass on the retry only makes it a

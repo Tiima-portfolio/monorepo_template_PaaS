@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Writes mutation-score evidence from the affected projects' mutation reports
 (written by their toolchain's mutation target). Run from the base branch's
 copy by the verify job, from risk tier R2 up.

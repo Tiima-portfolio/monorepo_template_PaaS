@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Test quality lint: tests that can't fail, or that don't run.
 A heuristic per language, applied to the test files a PR changes."""
 

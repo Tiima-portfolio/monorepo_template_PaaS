@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Admission: allow or block a merge by comparing the evidence present for a
 commit with the evidence its risk tier requires.
 

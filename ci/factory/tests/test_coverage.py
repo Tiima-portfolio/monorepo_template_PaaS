@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from factory.coverage import added_lines, diff_coverage, diff_mutation, parse_go_cover, parse_lcov, ratchet, total_coverage
 from factory.numbers import round1
 

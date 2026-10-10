@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Merge queue controller: which ready PRs to enqueue now, in what order."""
 
 import re

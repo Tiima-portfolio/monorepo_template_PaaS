@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Prints a mise config with the tools of every toolchain, for jobs that may
 build any service (the release job)."""
 

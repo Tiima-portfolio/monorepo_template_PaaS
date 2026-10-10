@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import copy
 
 from factory.policy import load_policy

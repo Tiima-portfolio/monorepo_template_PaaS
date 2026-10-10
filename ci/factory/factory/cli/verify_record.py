@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Writes one evidence record for a verify step.
 Usage: verify-record <check> <exit-code> [details]"""
 

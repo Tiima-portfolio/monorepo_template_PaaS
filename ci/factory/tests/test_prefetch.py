@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from factory.prefetch import images_for
 
 DIGEST = "a" * 64

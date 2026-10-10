@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from datetime import datetime
 
 from factory.flaky import active_quarantine, classify, classify_tests, parse_go_json, parse_junit, working_days_between

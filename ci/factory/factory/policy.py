@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Loads policy files from ci/policy (or FACTORY_POLICY_DIR)."""
 
 import os

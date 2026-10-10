@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Agent trust from measured outcomes, not from a label someone gives a model.
 
 Levels (experimental, observed, trusted, autonomous) are still set in

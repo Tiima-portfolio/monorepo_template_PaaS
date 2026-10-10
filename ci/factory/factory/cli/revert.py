@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """A red main is reverted, not left for everyone to investigate: opens a P0
 revert PR of the commit that failed the post-merge check, and an escape issue
 for the fix to re-land with a test. Run by the factory workflow's revert job.

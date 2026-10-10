@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Fetches last week's PRs, issues and factory runs and prints the report.
 Usage: metrics-report [--issue]   (--issue also posts it as an issue and in
 the run summary)

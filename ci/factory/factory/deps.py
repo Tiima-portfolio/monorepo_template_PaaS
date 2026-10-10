@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Dependency rules on the Nx project graph, from ci/policy/invariants.yaml."""
 
 from .globs import matches_any

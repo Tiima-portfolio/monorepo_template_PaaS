@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Runs a factory command: python run.py <command> [args].
 
 The workflows call it as `uv run --project ci/factory ci/factory/run.py

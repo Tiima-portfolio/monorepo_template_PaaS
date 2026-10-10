@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Boundary check: a PR must stay inside one boundary."""
 
 from .globs import matches_any

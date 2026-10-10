@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """A synthetic workload for the merge queue.
 
 The capacity formula (docs/merge-queue-capacity.md) assumes independent failures

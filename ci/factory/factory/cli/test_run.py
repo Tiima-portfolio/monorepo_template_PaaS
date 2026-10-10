@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Runs the affected test targets with flaky-test handling and writes the
 unit-tests evidence record plus flaky.json. Run from the base branch's copy
 by the verify job.

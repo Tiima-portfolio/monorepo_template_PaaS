@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Release controller, run by .github/workflows/release.yml on every push to
 main. It walks main in history order from a cursor, so a run that is
 cancelled or starts late loses nothing: the next run picks up from the

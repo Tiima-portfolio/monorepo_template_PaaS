@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Helpers shared by the commands: git, Nx and JSON files."""
 
 import json

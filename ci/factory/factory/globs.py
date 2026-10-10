@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Glob matching for policy paths.
 
 `**` matches any number of path segments and `*` matches within one segment.

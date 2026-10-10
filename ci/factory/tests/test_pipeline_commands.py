@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The commands the workflows call instead of inline shell."""
 
 import base64

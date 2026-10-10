@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Evidence collector checks: links a PR's evidence bundle to the commit that
 landed on main."""
 

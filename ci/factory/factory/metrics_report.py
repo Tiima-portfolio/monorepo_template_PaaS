@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Weekly factory metrics: flow and outcomes, not activity. Pure functions;
 the metrics-report command fetches the data."""
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Runs a verify step's Nx targets and writes its evidence record. A failure
 is recorded, not raised: admission decides from the records.
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Admission, run by .github/workflows/factory.yml after the gate and verify
 jobs. Reads gate.json and every evidence record under FACTORY_IN, decides,
 writes the summary and exits non-zero when the merge is blocked."""

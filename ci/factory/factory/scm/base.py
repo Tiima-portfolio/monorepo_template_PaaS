@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """What the factory core needs from a source control platform.
 
 The core (risk, boundaries, evidence, agent trust, admission, capacity logic)

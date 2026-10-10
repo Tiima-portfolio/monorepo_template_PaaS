@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The gate must classify a PR without running anything the PR controls."""
 
 import json

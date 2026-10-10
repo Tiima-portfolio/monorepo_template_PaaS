@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Diff coverage: the share of changed executable lines that unit tests run.
 
 Coverage is {file: {line: hits}}, files relative to the project; added lines

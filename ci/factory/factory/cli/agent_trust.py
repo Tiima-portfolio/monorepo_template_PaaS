@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Measures every agent against ci/policy/agents.yaml and prints what its trust
 level should be.
 

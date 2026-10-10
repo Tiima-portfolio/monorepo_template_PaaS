@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The project graph and the affected set, read as data from git objects.
 
 The gate must run no code the PR controls, so it can't ask Nx (which needs

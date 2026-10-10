@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Owner guardrails from each touched service's guardrails.yaml (base branch):
 required owner checks to run, and the rules for agents."""
 

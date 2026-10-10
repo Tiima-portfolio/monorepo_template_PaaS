@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Keeps the repository rulesets equal to the files in .github/rulesets/, and
 the repository settings in .github/repository.json.
 

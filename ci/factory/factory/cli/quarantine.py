@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Flaky test quarantine, through the SCM adapter.
 
 Usage:

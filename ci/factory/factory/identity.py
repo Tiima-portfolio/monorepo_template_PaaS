@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Evidence identity: which exact state, under which exact rules.
 
     Evidence = repository + tree + commit + policy + toolchain

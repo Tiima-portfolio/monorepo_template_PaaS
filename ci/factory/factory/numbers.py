@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Numbers that print like JavaScript's: Math.round halves up, and a whole
 number prints without ".0"."""
 

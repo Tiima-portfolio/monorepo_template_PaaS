@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import pytest
 
 from factory.evidence import required_evidence
