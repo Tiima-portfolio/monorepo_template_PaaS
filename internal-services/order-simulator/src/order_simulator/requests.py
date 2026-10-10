@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Requests the simulator sends to the orders service."""
 
 GREETING_PATH = "/greeting"
