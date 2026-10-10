@@ -71,3 +71,11 @@ def test_broken_yaml_is_data_not_a_crash(repo):
     git(path, "add", "-A")
     git(path, "commit", "-qm", "bad")
     assert "bad" in build_graph("HEAD")["nodes"]
+
+
+def test_with_dependencies_follows_what_a_project_depends_on(repo):
+    from factory.graph import with_dependencies
+
+    g = build_graph("HEAD")
+    assert with_dependencies(["orders"], g) == ["catalog", "orders", "toolchain-go"]
+    assert with_dependencies(["lone"], g) == ["lone"]
