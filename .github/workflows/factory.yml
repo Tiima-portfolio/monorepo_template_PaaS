@@ -361,35 +361,18 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app.outputs.token || github.token }}
+      # The revert runs the factory code from before the commit, so a commit
+      # that breaks the factory itself can still be reverted.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.before }}
+          path: .factory
+          sparse-checkout: ci
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # The revert title, branch, PR and escape issue: ci/factory/factory/cli/revert.py.
       - name: Open a revert PR
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           HAS_APP_TOKEN: ${{ env.HAS_APP }}
-        run: |
-          title=$(git log -1 --format=%s "$GITHUB_SHA")
-          # "product: fix x (#12)" is reverted as "product: revert fix x (#12)".
-          # Titles from before the project prefix keep the old "revert: <title>".
-          re='^([a-z0-9][A-Za-z0-9_.-]*): ((feat|fix|perf|refactor|revert|docs|test|chore|ci|build|style)[(! ].*)$'
-          if [[ "$title" =~ $re ]]; then
-            revert_title="${BASH_REMATCH[1]}: revert ${BASH_REMATCH[2]}"
-          else
-            revert_title="revert: $title"
-          fi
-          branch="revert/${GITHUB_SHA::12}"
-          git config user.name "factory-revert"
-          git config user.email "factory-revert@users.noreply.github.com"
-          git switch -c "$branch"
-          git revert --no-edit "$GITHUB_SHA"
-          git push origin "$branch"
-          note=""
-          if [ "$HAS_APP_TOKEN" != "true" ]; then
-            note=$'\n\nOpened with GITHUB_TOKEN, so the factory doesn\'t run on it automatically: close and reopen this PR to start it, or set the FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets.'
-          fi
-          revert=$(gh pr create --base main --head "$branch" --label P0 \
-            --title "$revert_title" \
-            --body "main failed the post-merge check on $GITHUB_SHA ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). This pure revert takes the P0 lane.$note")
-          # The failure got past the PR's checks: an escape, to be closed by a
-          # fix whose test fails without it (label the fix PR escape-fix).
-          gh issue create --label escape \
-            --title "escape: $title" \
-            --body "$GITHUB_SHA passed its PR checks but failed on main ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)); reverted in $revert. Re-land it with a test at the lowest level that would have caught this, in a PR labelled escape-fix: the factory checks that the test fails without the fix."
+          FACTORY_GIT_USER: factory-revert
+        run: uv run --frozen --no-config --project .factory/ci/factory .factory/ci/factory/run.py revert

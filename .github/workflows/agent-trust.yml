@@ -38,19 +38,5 @@ jobs:
       - name: Measure and demote
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
-        run: |
-          uv run --frozen --no-config --project ci/factory ci/factory/run.py agent-trust --apply > report.md
-          cat report.md >> "$GITHUB_STEP_SUMMARY"
-          if git diff --quiet ci/policy/agents.yaml; then
-            echo "No agent earned a demotion."
-            exit 0
-          fi
-          branch="agent-trust/$(date -u +%F)"
-          git config user.name "factory-agent-trust"
-          git config user.email "factory-agent-trust@users.noreply.github.com"
-          git switch -c "$branch"
-          git commit -am "ci: chore demote agents on measured outcomes"
-          git push origin "$branch"
-          gh pr create --base main --head "$branch" --label P0 \
-            --title "ci: chore demote agents on measured outcomes" \
-            --body "$(printf 'A critical escape or a rate over the limit demoted an agent (ci/policy/agents.yaml, `trust_progression`).\n\n'; cat report.md)"
+          FACTORY_GIT_USER: factory-agent-trust
+        run: uv run --frozen --no-config --project ci/factory ci/factory/run.py agent-trust --apply --open-pr

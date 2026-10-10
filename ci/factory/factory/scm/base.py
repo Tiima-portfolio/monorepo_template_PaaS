@@ -76,6 +76,19 @@ class SCM(ABC):
     def open_change(self, branch: str, title: str, body: str, labels: list[str]) -> str:
         """Opens a change from a pushed branch; returns its URL."""
 
+    @abstractmethod
+    def open_issue(self, title: str, body: str, labels: list[str], assignees: list[str] = ()) -> str:
+        """Opens an issue; returns its URL."""
+
+    # --- who may override --------------------------------------------------
+    @abstractmethod
+    def label_added_by(self, number: int, label: str) -> str | None:
+        """The login that last added a label to the change."""
+
+    @abstractmethod
+    def is_admin(self, login: str) -> bool:
+        """Whether the login administers the repository (a factory owner)."""
+
 
 class SCMError(RuntimeError):
     """The platform refused or failed an operation."""
