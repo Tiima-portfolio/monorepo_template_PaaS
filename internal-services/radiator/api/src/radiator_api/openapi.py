@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Writes the API's schema to openapi.json, the contract radiator-web reads:
 python -m radiator_api.openapi > openapi.json"""
 
