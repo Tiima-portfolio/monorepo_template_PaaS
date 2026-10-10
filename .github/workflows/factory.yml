@@ -30,6 +30,9 @@ env:
   FACTORY_HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
   FACTORY_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
   FACTORY_OUT: factory-out
+  # The gate and verify jobs run the base branch's factory, checked out under
+  # .factory, so a PR is judged and recorded by the code already on main.
+  FACTORY_RUN: uv run --frozen --no-config --project .factory/ci/factory .factory/ci/factory/run.py
 
 jobs:
   gate:
@@ -64,41 +67,25 @@ jobs:
       # service.yaml, project.json), with the base branch's code, so a PR that
       # crosses boundaries is rejected before any of its code could run.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Use gate code from the base branch
-        run: |
-          if [ -f .factory/ci/factory/factory/graph.py ]; then
-            code=.factory/ci
-          else
-            echo "::warning::The base branch has no isolated gate yet; using this PR's gate code (bootstrap only)."
-            code=ci
-          fi
-          echo "FACTORY_CODE=$code" >> "$GITHUB_ENV"
-          echo "FACTORY_RUN=uv run --frozen --no-config --project $code/factory $code/factory/run.py" >> "$GITHUB_ENV"
       - name: Check who added the override label
         if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'boundary-override')
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-        run: |
-          actor=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/events" --paginate \
-            --jq '[.[] | select(.event == "labeled" and .label.name == "boundary-override")] | last | .actor.login')
-          perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$actor/permission" --jq .permission)
-          echo "Override label added by $actor ($perm)"
-          # Factory owners: repository admins here; an org uses the team in boundaries.yaml.
-          [ "$perm" = "admin" ] && echo "FACTORY_OVERRIDE_OK=true" >> "$GITHUB_ENV" || true
+        run: $FACTORY_RUN override-check
       - name: Quarantine list
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" \
-            --jq '[.[] | {title, created_at}]' > quarantine.json
+        run: $FACTORY_RUN quarantine list quarantine.json
       - name: Gate
         id: gate
         # Hard limit for the gate itself, from ci/policy/budgets.yaml.
         timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
-        run: FACTORY_QUARANTINE_FILE=quarantine.json FACTORY_POLICY_DIR="$FACTORY_CODE/policy" $FACTORY_RUN gate
+          FACTORY_QUARANTINE_FILE: quarantine.json
+          FACTORY_POLICY_DIR: .factory/ci/policy
+        run: $FACTORY_RUN gate
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-gate
@@ -144,17 +131,10 @@ jobs:
       # doesn't see it as a second set of projects next to the PR's own.
       - run: find .factory -name project.json -delete
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Use the base branch's record and test scripts
-        run: |
-          py=.factory/ci/factory
-          [ -f "$py/run.py" ] || py=ci/factory
-          echo "FACTORY_RUN=uv run --frozen --no-config --project $py $py/run.py" >> "$GITHUB_ENV"
       - name: Quarantine list
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" \
-            --jq '[.[] | {title, created_at}]' > quarantine.json
+        run: $FACTORY_RUN quarantine list quarantine.json
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: factory-gate
@@ -165,22 +145,10 @@ jobs:
       # then find the images already local and no registry credentials.
       - name: Pull the toolchain images
         env:
-          TOKEN: ${{ github.token }}
-        run: |
-          export DOCKER_CONFIG="$RUNNER_TEMP/docker-pull"
-          mkdir -p "$DOCKER_CONFIG"
-          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          for image in $($FACTORY_RUN prefetch-images gate/gate.json); do
-            docker pull --quiet "$image"
-          done
-          docker logout ghcr.io
-          rm -rf "$DOCKER_CONFIG"
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: $FACTORY_RUN prefetch-images gate/gate.json --pull
       - name: Lint
-        run: |
-          set +e
-          npx nx affected -t lint --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
-          code=$?
-          $FACTORY_RUN verify-record format-lint "$code" "nx affected -t lint"
+        run: $FACTORY_RUN verify-run affected format-lint lint
       # The shared BuildKit service, when the repository configures it: main
       # pushes use the main instance and write the layer cache; PRs and the
       # merge queue use the PR instance and only read it. Unset: local BuildKit.
@@ -192,36 +160,31 @@ jobs:
           cache-write: ${{ github.event_name == 'push' }}
       # The gate computed the affected set in Python; this checks Nx sees the same graph.
       - name: Graph parity
-        # The command comes from the base branch, so the PR that adds it has none yet.
-        run: $FACTORY_RUN graph-parity || echo "::warning::graph-parity did not run (the base branch has no such command yet)"
+        run: $FACTORY_RUN graph-parity
       - name: Build
-        run: |
-          set +e
-          npx nx affected -t build --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
-          code=$?
-          $FACTORY_RUN verify-record build "$code" "nx affected -t build"
+        run: $FACTORY_RUN verify-run affected build build
       - name: Unit tests
         # Retries, flake confirmation and quarantine: see ci/factory/factory/flaky.py.
-        run: FACTORY_QUARANTINE_FILE=quarantine.json $FACTORY_RUN test-run
+        env:
+          FACTORY_QUARANTINE_FILE: quarantine.json
+        run: $FACTORY_RUN test-run
       - name: Owners' required checks
         if: needs.gate.outputs.owner_checks != ''
         env:
           OWNER_CHECKS: ${{ needs.gate.outputs.owner_checks }}
-        run: |
-          code=0
-          for check in $OWNER_CHECKS; do
-            npx nx run "$check" --outputStyle=static || code=1
-          done
-          $FACTORY_RUN verify-record owner-checks "$code" "$OWNER_CHECKS"
+        run: $FACTORY_RUN verify-run owners
       - name: Regression test (escape-fix)
         if: needs.gate.outputs.escape_fix == 'true'
-        run: |
-          $FACTORY_RUN regression
+        run: $FACTORY_RUN regression
+      - name: Mutation run (R2 and above)
+        if: needs.gate.outputs.tier == 'R2' || needs.gate.outputs.tier == 'R3'
+        continue-on-error: true
+        run: npx nx affected -t mutation --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static
       - name: Mutation score (R2 and above)
         if: needs.gate.outputs.tier == 'R2' || needs.gate.outputs.tier == 'R3'
-        run: |
-          npx nx affected -t mutation --base="$FACTORY_BASE" --head="$FACTORY_HEAD" --outputStyle=static || true
-          FACTORY_GATE=gate/gate.json $FACTORY_RUN mutation
+        env:
+          FACTORY_GATE: gate/gate.json
+        run: $FACTORY_RUN mutation
       # main's coverage per project, for the ratchet. Caches saved on main are
       # readable from PRs, but a PR can't write to main's cache scope.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -230,8 +193,10 @@ jobs:
           key: factory-metrics-${{ github.run_id }}
           restore-keys: factory-metrics-
       - name: Diff coverage and ratchet
-        run: |
-          FACTORY_GATE=gate/gate.json FACTORY_METRICS_FILE=factory-metrics.json $FACTORY_RUN diff-coverage
+        env:
+          FACTORY_GATE: gate/gate.json
+          FACTORY_METRICS_FILE: factory-metrics.json
+        run: $FACTORY_RUN diff-coverage
       # Simulated preview deploy on PRs: each affected project with a Helm
       # chart renders its manifests for the namespace <chart>-pr-<number> and
       # echoes "Deployment in here" (internal-tools/toolchains/helm). There is
@@ -291,10 +256,13 @@ jobs:
       - name: Job results from the platform
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          run="$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"
-          uv run --frozen --no-config --project ci/factory ci/factory/run.py scm jobs "$run" > jobs.json
-          uv run --frozen --no-config --project ci/factory ci/factory/run.py scm run "$run" > run.json
+          RUN_REF: ${{ github.run_id }}/${{ github.run_attempt }}
+        run: uv run --frozen --no-config --project ci/factory ci/factory/run.py scm jobs "$RUN_REF" > jobs.json
+      - name: Workflow run from the platform
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_REF: ${{ github.run_id }}/${{ github.run_attempt }}
+        run: uv run --frozen --no-config --project ci/factory ci/factory/run.py scm run "$RUN_REF" > run.json
       - name: Current approvals
         if: github.event_name == 'pull_request'
         env:
@@ -302,23 +270,18 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: uv run --frozen --no-config --project ci/factory ci/factory/run.py scm approvals "$PR" > approvers.json
       - name: Admission
-        run: FACTORY_IN=factory-in FACTORY_OUT=. FACTORY_JOBS_FILE=jobs.json FACTORY_RUN_FILE=run.json FACTORY_APPROVERS_FILE=approvers.json uv run --frozen --project ci/factory ci/factory/run.py admission
+        env:
+          FACTORY_IN: factory-in
+          FACTORY_OUT: .
+          FACTORY_JOBS_FILE: jobs.json
+          FACTORY_RUN_FILE: run.json
+          FACTORY_APPROVERS_FILE: approvers.json
+        run: uv run --frozen --project ci/factory ci/factory/run.py admission
       - name: Quarantine confirmed flaky tests
         if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          f=factory-in/factory-verify/flaky.json
-          [ -f "$f" ] || exit 0
-          jq -r '.[]' "$f" | while IFS= read -r t; do
-            title="quarantine: $t"
-            open=$(gh api "repos/$GITHUB_REPOSITORY/issues?labels=quarantine&state=open&per_page=100" --jq "[.[] | select(.title == \"$title\")] | length")
-            if [ "$open" = "0" ]; then
-              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f labels[]=quarantine \
-                -f body="The test $t failed and then passed on the same commit, and 20 reruns both passed and failed, so it is flaky. It is quarantined for at most 5 working days: until then its failures only block if it fails three runs in a row, and its project's PRs are one risk tier up. Fix or remove the flaky test, then close this issue. Found on $FACTORY_SHA." >/dev/null
-              echo "Quarantined $t"
-            fi
-          done
+        run: uv run --frozen --no-config --project ci/factory ci/factory/run.py quarantine open factory-in/factory-verify/flaky.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && hashFiles('bundle.json') != ''
         with:
