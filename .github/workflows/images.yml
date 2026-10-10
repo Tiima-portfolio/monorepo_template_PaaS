@@ -37,6 +37,7 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       # The package target exports a docker archive, which needs a BuildKit
       # container builder, as in the release workflow.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -54,19 +55,4 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
           REGISTRY_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
-          tag="${GITHUB_SHA::12}"
-          echo "### Toolchain images" >> "$GITHUB_STEP_SUMMARY"
-          for f in $(git ls-files ':(glob)internal-tools/toolchains/**/service.yaml'); do
-            dir=$(dirname "$f")
-            name=$(sed -n 's/^name: *//p' "$f")
-            if [ "$GITHUB_EVENT_NAME" = push ] && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "$dir"; then
-              continue
-            fi
-            FACTORY_VERSION="$tag" npx nx run "$name:package" --skip-nx-cache --outputStyle=static
-            skopeo copy --digestfile digest --dest-creds "$GITHUB_ACTOR:$REGISTRY_TOKEN" \
-              "docker-archive:$dir/dist/$name-image.tar" "docker://$registry/$name:$tag"
-            echo "- \`$name\`: \`$registry/$name:$tag@$(cat digest)\`" | tee -a "$GITHUB_STEP_SUMMARY"
-          done
+        run: uv run --frozen --project ci/factory ci/factory/run.py publish-images

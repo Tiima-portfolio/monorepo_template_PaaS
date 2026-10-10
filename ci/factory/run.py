@@ -11,8 +11,9 @@ import sys
 COMMANDS = [
     "simulate-queue",
     "gate", "admission", "scm", "graph-parity", "prefetch-images", "verify-record", "test-run", "diff-coverage", "mutation", "regression",
-    "release", "queue", "promote", "collect", "rulesets", "metrics", "metrics-report", "mise-all",
-    "agent-trust",
+    "override-check", "quarantine", "verify-run", "buildkit-service", "revert",
+    "release", "queue", "promote", "collect", "rulesets", "metrics", "metrics-report", "mise-all", "publish-images", "nightly",
+    "agent-trust", "escape-issue",
 ]
 
 if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:

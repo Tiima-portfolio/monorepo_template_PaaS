@@ -4,7 +4,8 @@ service released in this run, it opens one bump PR, labelled ready and P4,
 so the queue controller merges it once the consumer's own checks pass.
 Promotion of a service with an open escape issue is on hold.
 
-Env: GITHUB_REPOSITORY, GH_TOKEN. Reads released.json.
+Env: GITHUB_REPOSITORY, GH_TOKEN (pushes with it too, so the bump PRs start
+the factory), FACTORY_GIT_USER. Reads released.json.
 """
 
 from pathlib import Path
@@ -12,7 +13,7 @@ from pathlib import Path
 from ..policy import load_policy
 from ..promote import bump_title, on_hold, plan_promotions, set_pin
 from ..scm import get_scm
-from .common import git, lines, read_json, read_yaml
+from .common import env, git, lines, read_json, read_yaml, set_git_identity
 
 
 def main(argv):
@@ -29,6 +30,9 @@ def main(argv):
     for s in holds:
         print(f"::warning::Promotion of {s} is on hold: it has an open escape.")
 
+    set_git_identity()
+    if env.get("GITHUB_ACTIONS") == "true" and env.get("GH_TOKEN"):
+        git("remote", "set-url", "origin", f"https://x-access-token:{env['GH_TOKEN']}@github.com/{env['GITHUB_REPOSITORY']}.git")
     boundaries = load_policy("boundaries")
     start = git("rev-parse", "HEAD")
     for b in plan_promotions(pins_files, released, holds):

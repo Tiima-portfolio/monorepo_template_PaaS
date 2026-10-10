@@ -15,13 +15,15 @@ jobs:
     if: github.event.pull_request.merged && contains(github.event.pull_request.labels.*.name, 'hotfix')
     runs-on: ${{ vars.FACTORY_RUNNER_MAIN || 'ubuntu-latest' }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: ci
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Open the escape issue
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           TITLE: ${{ github.event.pull_request.title }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
-        run: |
-          gh issue create --repo "$GITHUB_REPOSITORY" --label escape --assignee "$AUTHOR" \
-            --title "escape: $TITLE (hotfix #$PR)" \
-            --body "Hotfix #$PR merged without regression-test evidence. Add the missing test at the lowest level that would have caught the defect, in a PR labelled escape-fix: the factory checks that the test fails without the fix. Open escapes and their age show in the factory metrics."
+        run: uv run --frozen --no-config --project ci/factory ci/factory/run.py escape-issue

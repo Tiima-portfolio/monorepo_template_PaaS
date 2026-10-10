@@ -20,25 +20,12 @@ inputs:
 runs:
   using: composite
   steps:
+    # ci/factory/factory/cli/buildkit_service.py; the caller has set up uv.
     - if: inputs.addr != ''
       shell: bash
       env:
-        ADDR: ${{ inputs.addr }}
-        TLS: ${{ inputs.tls }}
-        CACHE_REF: ${{ inputs.cache-ref }}
-        CACHE_WRITE: ${{ inputs.cache-write }}
-      run: |
-        echo "FACTORY_BUILDKIT_ADDR=$ADDR" >> "$GITHUB_ENV"
-        if [ -n "$TLS" ]; then
-          # Readable by the runner user only, and the caller deletes it when the job ends.
-          umask 077
-          dir="$RUNNER_TEMP/buildkit-tls"
-          mkdir -p "$dir"
-          printf '%s' "$TLS" | base64 -d | tar -xz -C "$dir"
-          echo "FACTORY_BUILDKIT_TLS_DIR=$dir" >> "$GITHUB_ENV"
-        fi
-        if [ -n "$CACHE_REF" ]; then
-          echo "FACTORY_BUILDKIT_CACHE_REF=$CACHE_REF" >> "$GITHUB_ENV"
-          echo "FACTORY_BUILDKIT_CACHE_WRITE=$CACHE_WRITE" >> "$GITHUB_ENV"
-        fi
-        echo "Container builds use the BuildKit service at $ADDR"
+        BUILDKIT_ADDR: ${{ inputs.addr }}
+        BUILDKIT_TLS: ${{ inputs.tls }}
+        BUILDKIT_CACHE_REF: ${{ inputs.cache-ref }}
+        BUILDKIT_CACHE_WRITE: ${{ inputs.cache-write }}
+      run: uv run --frozen --no-config --project ci/factory ci/factory/run.py buildkit-service

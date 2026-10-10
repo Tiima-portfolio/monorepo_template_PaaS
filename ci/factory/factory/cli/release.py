@@ -7,7 +7,7 @@ files have changed since. For each release it publishes the artifact first (a
 draft GitHub release with its files, and the image in the registry) and only
 then publishes the release, which creates the <service>/v<version> tag.
 
-Env: GITHUB_REPOSITORY, GH_TOKEN, FACTORY_REGISTRY_TOKEN, FACTORY_REGISTRY (default
+Env: GITHUB_REPOSITORY, GH_TOKEN, FACTORY_GIT_USER, FACTORY_REGISTRY_TOKEN, FACTORY_REGISTRY (default
 ghcr.io/<owner>/<repo>), FACTORY_DRY_RUN=true to only print the plan.
 """
 
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 from ..release import plan_releases
-from .common import env, git, lines, to_json
+from .common import env, git, lines, set_git_identity, to_json
 
 CURSOR = "factory-release-cursor"
 LEGACY_CURSOR_TAG = "factory/release-cursor"
@@ -66,6 +66,8 @@ def releasable_projects() -> dict:
 
 def main(argv):
     dry = env.get("FACTORY_DRY_RUN") == "true"
+    if not dry:
+        set_git_identity()
     repo = env.get("GITHUB_REPOSITORY") or ""
     registry = env.get("FACTORY_REGISTRY") or f"ghcr.io/{repo.lower()}"
     start = git("rev-parse", "HEAD")

@@ -25,10 +25,5 @@ jobs:
       - name: Check or re-apply
         env:
           GH_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN || github.token }}
-          HAS_ADMIN: ${{ secrets.FACTORY_ADMIN_TOKEN != '' }}
-        run: |
-          if [ "$HAS_ADMIN" = "true" ]; then
-            uv run --frozen --project ci/factory ci/factory/run.py rulesets apply
-          else
-            uv run --frozen --project ci/factory ci/factory/run.py rulesets check
-          fi
+          MODE: ${{ secrets.FACTORY_ADMIN_TOKEN != '' && 'apply' || 'check' }}
+        run: uv run --frozen --project ci/factory ci/factory/run.py rulesets "$MODE"

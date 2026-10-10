@@ -149,6 +149,22 @@ class GitHubAdapter(SCM):
             args += ["--label", label]
         return _gh(*args).strip()
 
+    def open_issue(self, title, body, labels, assignees=()):
+        args = ["issue", "create", "--repo", self.repo, "--title", title, "--body", body]
+        for label in labels:
+            args += ["--label", label]
+        for login in assignees:
+            args += ["--assignee", login]
+        return _gh(*args).strip()
+
+    def label_added_by(self, number, label):
+        events = _stream("api", f"repos/{self.repo}/issues/{number}/events", "--paginate",
+                         "--jq", f'[.[] | select(.event == "labeled" and .label.name == "{label}") | .actor.login]')
+        return events[-1] if events else None
+
+    def is_admin(self, login):
+        return _gh("api", f"repos/{self.repo}/collaborators/{login}/permission", "--jq", ".permission").strip() == "admin"
+
     # GitHub specifics
     @staticmethod
     def _admitted(pr) -> bool:

@@ -92,3 +92,29 @@ def append(path_var: str, text: str) -> None:
 def criticality(project: dict) -> str:
     tag = next((t for t in project.get("tags") or [] if t.startswith("criticality:")), None)
     return tag.split(":")[1] if tag else "normal"
+
+
+def set_env(**values: str) -> None:
+    """Sets variables for the job's later steps (GITHUB_ENV)."""
+    append("GITHUB_ENV", "".join(f"{k}={v}\n" for k, v in values.items()))
+
+
+def run_url() -> str:
+    """The link to this workflow run."""
+    return f"{env.get('GITHUB_SERVER_URL') or 'https://github.com'}/{env.get('GITHUB_REPOSITORY')}/actions/runs/{env.get('GITHUB_RUN_ID')}"
+
+
+def set_git_identity() -> None:
+    """Commits as the bot FACTORY_GIT_USER names, when it is set."""
+    name = env.get("FACTORY_GIT_USER")
+    if name:
+        git("config", "user.name", name)
+        git("config", "user.email", f"{name}@users.noreply.github.com")
+
+
+def push_branch(branch: str, message: str) -> None:
+    """Commits the tracked changes on a new branch and pushes it."""
+    set_git_identity()
+    git("switch", "-c", branch)
+    git("commit", "-am", message)
+    git("push", "origin", branch)
