@@ -37,7 +37,8 @@ export function createService({ name, lang, owner, kind = 'product', extra = [],
         fs.mkdirSync(dst, { recursive: true });
         copy(src, dst);
       } else {
-        fs.writeFileSync(dst, fill(fs.readFileSync(src, 'utf8')));
+        // Keeps the mode, so a template's executable files stay executable.
+        fs.writeFileSync(dst, fill(fs.readFileSync(src, 'utf8')), { mode: fs.statSync(src).mode });
       }
     }
   };
