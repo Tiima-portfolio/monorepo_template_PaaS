@@ -1,4 +1,4 @@
-from factory.boundary import boundary_of, check_boundary
+from factory.boundary import boundary_of, check_boundary, project_of
 from factory.globs import matches
 from factory.policy import load_policy
 
@@ -56,3 +56,11 @@ def test_unowned_paths_fail():
 
 def test_empty_change_passes():
     assert check_boundary([], policy)["ok"]
+
+
+def test_the_project_in_pr_titles_is_the_boundary_or_its_folder():
+    policy = load_policy("boundaries")
+    assert project_of(boundary_of("product/services/orders/main.go", policy)) == "product"
+    assert project_of(boundary_of("internal-services/buildkit/Dockerfile", policy)) == "buildkit"
+    assert project_of(boundary_of("internal-tools/toolchains/go/image/Dockerfile", policy)) == "toolchains"
+    assert project_of(boundary_of(".github/workflows/factory.yml", policy)) == "ci"

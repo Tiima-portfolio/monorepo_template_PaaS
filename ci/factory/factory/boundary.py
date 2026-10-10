@@ -14,6 +14,13 @@ def boundary_of(file: str, policy: dict) -> str | None:
     return None
 
 
+def project_of(key: str) -> str:
+    """The project a boundary key names in PR titles: the boundary, or the
+    folder for a split one ("internal-service:internal-services/buildkit" is
+    "buildkit")."""
+    return key.split("/")[-1] if ":" in key else key
+
+
 def check_boundary(files, policy: dict, override: bool = False) -> dict:
     """A failed check has no "boundary" key, so gate.json leaves it out as the
     JS did. override: a factory owner added the override label (the workflow checks who)."""

@@ -112,3 +112,23 @@ def test_hidden_bypass_actors_are_not_drift():
     live = {k: v for k, v in want.items() if k != "bypass_actors"}
     assert diff(want, live) == []
     assert diff(want, {**want, "bypass_actors": []}) == ["bypass_actors"]
+
+
+def test_repository_settings_drift_is_reported_and_applied(monkeypatch, tmp_path):
+    from factory.cli import rulesets as cli
+
+    settings = tmp_path / "repository.json"
+    settings.write_text(json.dumps({"_comment": "x", "squash_merge_commit_title": "PR_TITLE"}))
+    monkeypatch.setattr(cli, "SETTINGS", settings)
+    calls = []
+
+    def api(*args, body=None):
+        calls.append((args, body))
+        return json.dumps({"squash_merge_commit_title": "COMMIT_OR_PR_TITLE"}) if len(args) == 1 else ""
+
+    monkeypatch.setattr(cli, "api", api)
+    assert cli.settings("o/r", "check") == 1
+    assert cli.settings("o/r", "apply") == 0
+    assert calls[-1] == (("-X", "PATCH", "repos/o/r", "--input", "-"), '{"squash_merge_commit_title":"PR_TITLE"}')
+    monkeypatch.setattr(cli, "api", lambda *a, body=None: json.dumps({}))
+    assert cli.settings("o/r", "check") == 0

@@ -1,4 +1,5 @@
-"""Keeps the repository rulesets equal to the files in .github/rulesets/.
+"""Keeps the repository rulesets equal to the files in .github/rulesets/, and
+the repository settings in .github/repository.json.
 
     run.py rulesets check   # report drift, exit 1 if any
     run.py rulesets apply   # create or update to match the files
@@ -15,6 +16,7 @@ from ..rulesets import api_body, diff
 from .common import env, run, to_json
 
 DIR = Path(".github/rulesets")
+SETTINGS = Path(".github/repository.json")
 
 
 def api(*args, body=None) -> str:
@@ -49,7 +51,28 @@ def main(argv):
                 print(f"{want['name']}: GitHub refused it: {(e.stdout or str(e)).strip()}")
         if not optional:
             drift += 1
+    drift += settings(repo, mode)
     if drift:
-        print(f"::warning::{drift} ruleset(s) differ from .github/rulesets/. Run: uv run --project ci/factory ci/factory/run.py rulesets apply")
+        print(f"::warning::{drift} ruleset(s) or setting(s) differ from .github/rulesets/. Run: uv run --project ci/factory ci/factory/run.py rulesets apply")
         return 1
     return 0
+
+
+def settings(repo, mode) -> int:
+    """Repository settings from SETTINGS. A setting GitHub doesn't show this
+    token isn't counted as drift."""
+    want = {k: v for k, v in json.loads(SETTINGS.read_text()).items() if not k.startswith("_")} if SETTINGS.exists() else {}
+    have = json.loads(api(f"repos/{repo}")) if want else {}
+    changed = {k: v for k, v in want.items() if k in have and have[k] != v}
+    if not changed:
+        print(f"settings: match {SETTINGS}")
+        return 0
+    print(f"settings: differ from {SETTINGS} ({', '.join(changed)})")
+    if mode == "apply":
+        try:
+            api("-X", "PATCH", f"repos/{repo}", "--input", "-", body=to_json(want, indent=None))
+            print("settings: updated")
+            return 0
+        except subprocess.CalledProcessError as e:
+            print(f"settings: GitHub refused them: {(e.stdout or str(e)).strip()}")
+    return 1

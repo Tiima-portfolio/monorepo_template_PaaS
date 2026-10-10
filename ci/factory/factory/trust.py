@@ -17,6 +17,8 @@ gathers them.
 import re
 from datetime import date
 
+from .checks import parse_title
+
 PR_REF = re.compile(r"\(#(\d+)\)\s*$")
 
 
@@ -33,11 +35,14 @@ def stats(agent: dict, prs: list[dict], issues: list[dict], since: str) -> dict:
         m = PR_REF.search(title or "")
         return mine.get(int(m.group(1))) if m else None
 
-    reverts = sum(1 for p in others if (p.get("title") or "").startswith("revert:") and origin(p["title"]))
+    def is_revert(title):
+        return (parse_title(title) or {}).get("type") == "revert"
+
+    reverts = sum(1 for p in others if is_revert(p.get("title")) and origin(p["title"]))
     escapes = [i for i in issues if (i.get("title") or "").startswith("escape:") and "escape" in i.get("labels", [])
                and (i.get("createdAt") or "")[:10] >= since and origin(i["title"])]
     return {
-        "accepted": len([p for p in mine.values() if not (p.get("title") or "").startswith("revert:")]),
+        "accepted": len([p for p in mine.values() if not is_revert(p.get("title"))]),
         "reverts": reverts,
         "escapes": len(escapes),
         "critical_escapes": len([i for i in escapes if "critical" in i["labels"]]),

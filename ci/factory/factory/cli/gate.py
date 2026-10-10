@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from ..backpressure import agent_backpressure
-from ..boundary import check_boundary
+from ..boundary import check_boundary, project_of
 from ..checks import check_history, check_provenance, check_title
 from ..contracts import contract_problems
 from ..deps import check_dependencies
@@ -84,7 +84,7 @@ def main(argv):
     provenance = {"ok": True, "needs_human": False, "raise": [], "message": "Checked on each PR"}
     if is_pr:
         boundary = check_boundary(files, load_policy("boundaries"), override=override)
-        title = check_title(pr.get("title"))
+        title = check_title(pr.get("title"), [project_of(b) for b in boundary["boundaries"]])
     history = check_history(commits)
 
     aff = affected(files, base, head)

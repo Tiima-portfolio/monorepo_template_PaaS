@@ -2,7 +2,8 @@ import re
 from datetime import datetime, timezone
 
 from factory.policy import load_policy
-from factory.promote import plan_promotions, set_pin
+from factory.policy import load_policy
+from factory.promote import bump_title, on_hold, plan_promotions, set_pin
 from factory.queue import select_to_enqueue
 from factory.release import latest_version, next_version, plan_releases
 
@@ -26,7 +27,7 @@ def test_releases_follow_history_order_and_see_earlier_releases():
     commits = [
         {"sha": "a", "title": "feat(orders): refunds", "affected": ["orders", "catalog"]},
         {"sha": "b", "title": "docs: readme", "affected": ["orders"]},
-        {"sha": "c", "title": "fix(orders): rounding", "affected": ["orders"]},
+        {"sha": "c", "title": "product: fix(orders) rounding", "affected": ["orders"]},
     ]
     r = plan_releases(commits, ["orders/v1.0.0"])
     assert [x["tag"] for x in r] == ["catalog/v0.1.0", "orders/v1.1.0", "orders/v1.1.1"]
@@ -119,3 +120,16 @@ def test_workspace_changes_wait_for_the_off_peak_window_except_p0():
     assert re.search("off-peak", select_to_enqueue([ws], [], policy, now=day)["waiting"][0]["reason"])
     assert len(select_to_enqueue([ws], [], policy, now=night)["picks"]) == 1
     assert len(select_to_enqueue([pr(files=["nx.json"], labels=["ready", "P0"])], [], policy, now=day)["picks"]) == 1
+
+
+def test_bump_prs_are_titled_with_the_consumers_project():
+    policy = load_policy("boundaries")
+    assert bump_title("product/services/orders/pins.yaml", "pricing", "1.2.0", policy) == "product: fix(orders) promote pricing to 1.2.0"
+    assert bump_title("internal-services/buildkit/pins.yaml", "lint-image", "0.3.0", policy) == "buildkit: fix promote lint-image to 0.3.0"
+
+
+def test_escapes_hold_the_service_they_name():
+    assert on_hold("buildkit", ["escape: buildkit: fix cache (#3)"])
+    assert on_hold("orders", ["escape: product: fix(orders) rounding (#4)"])
+    assert on_hold("orders", ["escape: [orders] wrong totals"])
+    assert not on_hold("orders", ["escape: product: fix(pricing) rounding (#5)"])

@@ -53,7 +53,7 @@ def test_the_lowest_level_cannot_be_demoted_and_the_top_cannot_be_promoted():
 def test_stats_attribute_reverts_and_escapes_through_the_squash_commit():
     prs = [{"number": 1, "author": "a1", "title": "feat: x", "mergedAt": "2026-10-05T00:00:00Z", "labels": []},
            {"number": 2, "author": "human", "title": "feat: y", "mergedAt": "2026-10-05T00:00:00Z", "labels": []},
-           {"number": 3, "author": "factory", "title": "revert: feat: x (#1)", "mergedAt": "2026-10-06T00:00:00Z", "labels": []},
+           {"number": 3, "author": "factory", "title": "product: revert feat x (#1)", "mergedAt": "2026-10-06T00:00:00Z", "labels": []},
            {"number": 4, "author": "factory", "title": "revert: feat: y (#2)", "mergedAt": "2026-10-06T00:00:00Z", "labels": []},
            {"number": 5, "author": "a1", "title": "feat: z", "mergedAt": "2026-10-07T00:00:00Z", "labels": ["policy-violation"]}]
     issues = [{"title": "escape: feat: x (#1)", "labels": ["escape", "critical"], "createdAt": "2026-10-06T00:00:00Z"},

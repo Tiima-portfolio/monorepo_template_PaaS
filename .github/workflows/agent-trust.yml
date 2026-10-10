@@ -49,8 +49,8 @@ jobs:
           git config user.name "factory-agent-trust"
           git config user.email "factory-agent-trust@users.noreply.github.com"
           git switch -c "$branch"
-          git commit -am "chore: demote agents on measured outcomes"
+          git commit -am "ci: chore demote agents on measured outcomes"
           git push origin "$branch"
           gh pr create --base main --head "$branch" --label P0 \
-            --title "chore: demote agents on measured outcomes" \
+            --title "ci: chore demote agents on measured outcomes" \
             --body "$(printf 'A critical escape or a rate over the limit demoted an agent (ci/policy/agents.yaml, `trust_progression`).\n\n'; cat report.md)"

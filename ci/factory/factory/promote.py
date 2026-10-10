@@ -2,7 +2,9 @@
 a pins.yaml gets a bump PR, one per consumer, so each hop is its own PR."""
 
 import re
+from pathlib import PurePosixPath
 
+from .boundary import boundary_of, project_of
 from .release import parse
 
 
@@ -41,3 +43,19 @@ def set_pin(text: str, service: str, version: str) -> str:
     if not done:
         raise ValueError(f"no pin for {service} to change")
     return "\n".join(out)
+
+
+def bump_title(pins_path: str, service: str, version: str, boundaries: dict) -> str:
+    """"<project>: fix(<consumer>) promote ...", the scope left out when it
+    repeats the project, e.g. "product: fix(orders) promote pricing to 1.2.0"."""
+    consumer = PurePosixPath(pins_path).parent
+    project = project_of(boundary_of(pins_path, boundaries) or str(consumer))
+    scope = "" if consumer.name == project else f"({consumer.name})"
+    return f"{project}: fix{scope} promote {service} to {version}"
+
+
+def on_hold(service: str, escapes) -> bool:
+    """Open escape issues name the service as the title's project or scope, e.g.
+    "escape: buildkit: fix ...", "escape: product: fix(orders) ...", or in
+    brackets, "escape: [orders] ..."."""
+    return any(f"({service})" in t or f"[{service}]" in t or f": {service}: " in t for t in escapes)

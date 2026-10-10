@@ -367,6 +367,14 @@ jobs:
           HAS_APP_TOKEN: ${{ env.HAS_APP }}
         run: |
           title=$(git log -1 --format=%s "$GITHUB_SHA")
+          # "product: fix x (#12)" is reverted as "product: revert fix x (#12)".
+          # Titles from before the project prefix keep the old "revert: <title>".
+          re='^([a-z0-9][A-Za-z0-9_.-]*): ((feat|fix|perf|refactor|revert|docs|test|chore|ci|build|style)[(! ].*)$'
+          if [[ "$title" =~ $re ]]; then
+            revert_title="${BASH_REMATCH[1]}: revert ${BASH_REMATCH[2]}"
+          else
+            revert_title="revert: $title"
+          fi
           branch="revert/${GITHUB_SHA::12}"
           git config user.name "factory-revert"
           git config user.email "factory-revert@users.noreply.github.com"
@@ -378,7 +386,7 @@ jobs:
             note=$'\n\nOpened with GITHUB_TOKEN, so the factory doesn\'t run on it automatically: close and reopen this PR to start it, or set the FACTORY_APP_ID and FACTORY_APP_PRIVATE_KEY secrets.'
           fi
           revert=$(gh pr create --base main --head "$branch" --label P0 \
-            --title "revert: $title" \
+            --title "$revert_title" \
             --body "main failed the post-merge check on $GITHUB_SHA ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). This pure revert takes the P0 lane.$note")
           # The failure got past the PR's checks: an escape, to be closed by a
           # fix whose test fails without it (label the fix PR escape-fix).

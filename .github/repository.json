@@ -1,0 +1,5 @@
+{
+  "_comment": "Repository settings the rulesets job keeps. The squash commit on main takes the PR title, which the gate checks: \"<project>: <type> <description>\".",
+  "squash_merge_commit_title": "PR_TITLE",
+  "squash_merge_commit_message": "COMMIT_MESSAGES"
+}

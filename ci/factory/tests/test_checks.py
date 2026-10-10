@@ -1,14 +1,34 @@
-from factory.checks import check_history, check_provenance, check_title
+from factory.checks import check_history, check_provenance, check_title, parse_title
 
 
-def test_conventional_titles_and_their_bump():
-    assert check_title("fix: handle empty cart")["bump"] == "patch"
-    assert check_title("feat(orders): add refunds")["bump"] == "minor"
-    assert check_title("feat!: drop v1 API")["bump"] == "major"
-    assert check_title("docs: typo")["bump"] == "none"
-    assert check_title("ci: add gate")["bump"] == "none"
+def test_titles_name_the_project_and_set_the_bump():
+    assert check_title("product: fix handle empty cart")["bump"] == "patch"
+    assert check_title("product: feat(orders) add refunds")["bump"] == "minor"
+    assert check_title("buildkit: feat! drop v1 API")["bump"] == "major"
+    assert check_title("docs: docs typo")["bump"] == "none"
+    assert check_title("ci: ci add gate")["project"] == "ci"
     assert not check_title("Add stuff")["ok"]
-    assert not check_title("feat:missing space")["ok"]
+    assert not check_title("product: fix")["ok"]
+    assert not check_title("product: tweak things")["ok"]
+
+
+def test_old_style_titles_fail_on_new_prs():
+    assert not check_title("fix: handle empty cart")["ok"]
+    assert not check_title("feat(orders): add refunds")["ok"]
+
+
+def test_the_title_must_name_a_project_the_pr_changes():
+    assert check_title("buildkit: fix cache path", ["buildkit"])["ok"]
+    wrong = check_title("product: fix cache path", ["buildkit"])
+    assert not wrong["ok"] and 'Start the title with "buildkit: "' in wrong["message"]
+    assert 'for example "buildkit: fix ..."' in check_title("fix: cache path", ["buildkit"])["message"]
+
+
+def test_release_still_reads_titles_from_before_the_project_prefix():
+    assert parse_title("feat(orders): add refunds") == {"project": None, "type": "feat", "scope": "orders", "bump": "minor"}
+    assert parse_title("revert: feat: x (#1)")["type"] == "revert"
+    assert parse_title("product: revert fix x (#12)") == {"project": "product", "type": "revert", "scope": None, "bump": "patch"}
+    assert parse_title("Add stuff") is None
 
 
 def test_merge_commits_fail_history():

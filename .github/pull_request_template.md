@@ -1,5 +1,8 @@
-<!-- Title: use a conventional prefix. fix: patch, feat: minor, feat!: major,
-     docs:/test:/chore:/ci:/build: no release. -->
+<!-- Title: "<project>: <type> <description>", e.g. "product: fix rounding" or
+     "buildkit: feat add a cache". The project is the one this PR changes
+     (product, platform, ci, docs, or the folder under internal-services/ or
+     internal-tools/). Type fix: patch, feat: minor, feat!: major,
+     docs/test/chore/ci/build: no release. It becomes the commit title on main. -->
 
 Feature-Id: <!-- the feature or ticket this belongs to, e.g. CHK-142 -->
 
