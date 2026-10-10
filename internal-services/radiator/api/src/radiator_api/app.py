@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """HTTP routes. The ingress sends /api here and everything else to radiator-web."""
 
 from datetime import UTC, datetime

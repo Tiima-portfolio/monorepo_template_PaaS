@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Mock factory data. It changes once a minute, so the radiator looks alive,
 and is the same for every request within that minute."""
 
